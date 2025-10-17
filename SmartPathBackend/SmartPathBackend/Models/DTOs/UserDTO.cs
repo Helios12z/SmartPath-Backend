@@ -1,4 +1,6 @@
-﻿namespace SmartPathBackend.Models.DTOs
+﻿using SmartPathBackend.Models.Enums;
+
+namespace SmartPathBackend.Models.DTOs
 {
     public class UserRequestDto
     {
@@ -8,6 +10,7 @@
         public string? FullName { get; set; }
         public string? Bio { get; set; }
         public string? AvatarUrl { get; set; }
+        public Role Role { get; set; } = Role.Student;
     }
 
     public class UserResponseDto
@@ -17,7 +20,7 @@
         public string Email { get; set; } = null!;
         public string? FullName { get; set; }
         public string? AvatarUrl { get; set; }
-        public string Role { get; set; } = null!;
+        public Role Role { get; set; } = Role.Student;
         public int Point { get; set; }
     }
 }

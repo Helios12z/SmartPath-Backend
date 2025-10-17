@@ -1,6 +1,6 @@
 ﻿namespace SmartPathBackend.Models.Entities
 {
-    public class Message
+    public class Message: BaseEntity
     {
         public Guid ChatId { get; set; }
         public Guid SenderId { get; set; }

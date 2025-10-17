@@ -3,9 +3,9 @@ using SmartPathBackend.Models.Entities;
 
 namespace SmartPathBackend.Models.DTOs
 {
-    public class AutoMapper: Profile
+    public class MappingProfile: Profile
     {
-        public AutoMapper()
+        public MappingProfile()
         {
             CreateMap<User, UserResponseDto>();
             CreateMap<Post, PostResponseDto>();
