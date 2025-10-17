@@ -1,0 +1,24 @@
+﻿namespace SmartPathBackend.Models.DTOs
+{
+    public class PostRequestDto
+    {
+        public string Title { get; set; } = null!;
+        public string Content { get; set; } = null!;
+        public bool IsQuestion { get; set; } = false;
+        public List<Guid>? CategoryIds { get; set; }
+    }
+
+    public class PostResponseDto
+    {
+        public Guid Id { get; set; }
+        public string Title { get; set; } = null!;
+        public string Content { get; set; } = null!;
+        public bool IsQuestion { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string AuthorUsername { get; set; } = null!;
+        public string? AuthorAvatarUrl { get; set; }
+        public int ReactionCount { get; set; }
+        public int CommentCount { get; set; }
+        public List<string>? Categories { get; set; }
+    }
+}
