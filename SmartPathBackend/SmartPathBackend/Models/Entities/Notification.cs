@@ -1,6 +1,6 @@
 ﻿namespace SmartPathBackend.Models.Entities
 {
-    public class Notification
+    public class Notification: BaseEntity
     {
         public Guid ReceiverId { get; set; }
         public string Type { get; set; } = null!;
