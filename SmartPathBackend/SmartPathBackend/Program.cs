@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using SmartPathBackend.Data;
 using SmartPathBackend.Interfaces;
 using SmartPathBackend.Interfaces.Repositories;
 using SmartPathBackend.Interfaces.Services;
@@ -32,6 +34,9 @@ builder.Services.AddScoped<ISystemLogService, SystemLogService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IFriendshipService, FriendshipService>();
+
+builder.Services.AddDbContext<SmartPathDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddAutoMapper(cfg => {
 }, typeof(MappingProfile).Assembly);

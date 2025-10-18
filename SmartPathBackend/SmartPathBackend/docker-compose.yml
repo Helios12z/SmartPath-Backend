@@ -1,0 +1,31 @@
+﻿version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: smartpath-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: smartpathdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - smartpath_postgres_data:/var/lib/postgresql/data
+    command: [
+      "postgres",
+      "-c", "listen_addresses=*",
+      "-c", "password_encryption=scram-sha-256",
+      "-c", "authentication_timeout=5s",
+      "-c", "unix_socket_directories=/var/run/postgresql",
+      "-c", "hba_file=/var/lib/postgresql/data/pg_hba.conf"
+    ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d smartpathdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  smartpath_postgres_data:
