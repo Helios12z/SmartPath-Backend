@@ -416,3 +416,5 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+/SmartPathBackend/SmartPathBackend/appsettings.Development.json
+/SmartPathBackend/SmartPathBackend/appsettings.Development.json
