@@ -4,22 +4,31 @@ namespace SmartPathBackend.Models.DTOs
 {
     public class UserRequestDto
     {
-        public string Email { get; set; } = null!;
-        public string Password { get; set; } = null!;
+        public string Email { get; set; } = null!;      
+        public string? Password { get; set; }           
         public string Username { get; set; } = null!;
         public string? FullName { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? Major { get; set; }
+        public string? Faculty { get; set; }
+        public int? YearOfStudy { get; set; }
         public string? Bio { get; set; }
         public string? AvatarUrl { get; set; }
-        public Role Role { get; set; } = Role.Student;
+        public Role? Role { get; set; } = Enums.Role.Student;         
     }
 
     public class UserResponseDto
     {
         public Guid Id { get; set; }
         public string Username { get; set; } = null!;
-        public string Email { get; set; } = null!;
+        public string Email { get; set; } = null!;      
         public string? FullName { get; set; }
         public string? AvatarUrl { get; set; }
+        public string? Bio { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? Major { get; set; }
+        public string? Faculty { get; set; }
+        public int? YearOfStudy { get; set; }
         public Role Role { get; set; } = Role.Student;
         public int Point { get; set; }
     }
