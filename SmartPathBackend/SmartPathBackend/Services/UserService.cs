@@ -41,13 +41,12 @@ namespace SmartPathBackend.Services
             {
                 Id = Guid.NewGuid(),
                 Email = request.Email,
-                Password = request.Password,
                 Username = request.Username,
                 FullName = request.FullName,
                 Role = request.Role,
                 CreatedAt = DateTime.UtcNow
             };
-
+            user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
             await _unitOfWork.Users.AddAsync(user);
             await _unitOfWork.SaveChangesAsync();
             return _mapper.Map<UserResponseDto>(user);
@@ -75,6 +74,25 @@ namespace SmartPathBackend.Services
             _unitOfWork.Users.Remove(user);
             await _unitOfWork.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<User?> AuthenticateAsync(string emailOrUsername, string password)
+        {
+            if (string.IsNullOrWhiteSpace(emailOrUsername) || string.IsNullOrWhiteSpace(password))
+                return null;
+
+            // Thử tìm theo email, nếu không có thì tìm theo username
+            User? user = await _unitOfWork.Users.GetByEmailAsync(emailOrUsername);
+            if (user is null)
+            {
+                user = await _unitOfWork.Users.GetByUsernameAsync(emailOrUsername);
+            }
+
+            if (user is null) return null;
+
+            // So sánh mật khẩu (đã hash bằng BCrypt khi Create/Update)
+            bool ok = BCrypt.Net.BCrypt.Verify(password, user.Password);
+            return ok ? user : null;
         }
     }
 }
