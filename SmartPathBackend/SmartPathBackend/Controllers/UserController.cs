@@ -26,7 +26,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpPost]
-        [AllowAnonymous]
+        [Authorize]
         public async Task<IActionResult> Create(UserRequestDto req)
         {
             var u = await _users.CreateAsync(req);
