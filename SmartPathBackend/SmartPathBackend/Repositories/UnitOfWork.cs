@@ -12,6 +12,7 @@ namespace SmartPathBackend.Repositories
 
         public IUserRepository Users { get; }
         public IPostRepository Posts { get; }
+        public ICategoryRepository Categories { get; }
         public ICommentRepository Comments { get; }
         public IReactionRepository Reactions { get; }
         public IReportRepository Reports { get; }
@@ -32,13 +33,15 @@ namespace SmartPathBackend.Repositories
             IChatRepository chats,
             IMessageRepository messages,
             INotificationRepository notifications,
-            ISystemLogRepository systemLogs
+            ISystemLogRepository systemLogs,
+            ICategoryRepository categories
         )
         {
             _context = context;
 
             Users = users;
             Posts = posts;
+            Categories = categories;
             Comments = comments;
             Reactions = reactions;
             Reports = reports;

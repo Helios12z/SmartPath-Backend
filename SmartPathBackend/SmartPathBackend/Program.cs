@@ -10,6 +10,7 @@ using SmartPathBackend.Models.Options;
 using SmartPathBackend.Repositories;
 using SmartPathBackend.Services;
 using System.Security.Claims;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -61,6 +62,7 @@ builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ISystemLogRepository, SystemLogRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -76,12 +78,18 @@ builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IFriendshipService, FriendshipService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
 
 builder.Services.AddDbContext<SmartPathDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddAutoMapper(cfg => {
 }, typeof(MappingProfile).Assembly);
+
+builder.Services.AddControllers().AddJsonOptions(o =>
+{
+    o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); 
+});
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

@@ -49,7 +49,7 @@ namespace SmartPathBackend.Controllers
             if (string.IsNullOrWhiteSpace(req.Email) ||
                 string.IsNullOrWhiteSpace(req.Username) ||
                 string.IsNullOrWhiteSpace(req.Password) ||
-                string.IsNullOrWhiteSpace(req.FullName))
+                string.IsNullOrWhiteSpace(req.FullName)) 
             {
                 return BadRequest("Missing required fields");
             }
@@ -59,7 +59,8 @@ namespace SmartPathBackend.Controllers
                 Email = req.Email,
                 Username = req.Username,
                 Password = req.Password,
-                FullName = req.FullName
+                FullName = req.FullName,
+                Role= req.Role
             });
 
             if (created == null) return BadRequest("Failed to create user");
