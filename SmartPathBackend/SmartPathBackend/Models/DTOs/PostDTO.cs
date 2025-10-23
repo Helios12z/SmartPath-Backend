@@ -15,7 +15,9 @@
         public string Content { get; set; } = null!;
         public bool IsQuestion { get; set; }
         public DateTime CreatedAt { get; set; }
-        public string AuthorUsername { get; set; } = null!;
+        public DateTime? UpdatedAt { get; set; }
+        public string? AuthorUsername { get; set; } 
+        public Guid AuthorId { get; set; } 
         public string? AuthorAvatarUrl { get; set; }
         public int ReactionCount { get; set; }
         public int CommentCount { get; set; }

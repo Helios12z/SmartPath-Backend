@@ -7,5 +7,6 @@ namespace SmartPathBackend.Interfaces.Repositories
         Task<IEnumerable<Post>> GetPostsByUserAsync(Guid userId);
         Task<IEnumerable<Post>> GetByCategoryAsync(Guid categoryId);
         Task<IEnumerable<Post>> GetRecentAsync(int limit = 10);
+        IQueryable<Post> Query();
     }
 }

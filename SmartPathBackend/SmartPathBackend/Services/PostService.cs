@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using SmartPathBackend.Interfaces;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
@@ -9,65 +10,155 @@ namespace SmartPathBackend.Services
     public class PostService : IPostService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IMapper _mapper;
 
-        public PostService(IUnitOfWork unitOfWork, IMapper mapper)
+        public PostService(IUnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork;
-            _mapper = mapper;
+        }
+
+        private static IQueryable<PostResponseDto> ProjectToDto(IQueryable<Post> query)
+        {
+            return query.Select(p => new PostResponseDto
+            {
+                Id = p.Id,
+                Title = p.Title,
+                Content = p.Content,
+                IsQuestion = p.IsQuestion,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt,
+
+                AuthorUsername = p.Author.Username,
+                AuthorAvatarUrl = p.Author.AvatarUrl,
+                AuthorId = p.Author.Id,
+
+                ReactionCount = p.Reactions != null ? p.Reactions.Count() : 0,
+
+                CommentCount = p.Comments != null ? p.Comments.Count() : 0,
+
+                Categories = p.CategoryPosts != null
+                    ? p.CategoryPosts.Select(cp => cp.Category.Name).ToList()
+                    : new List<string>()
+            });
         }
 
         public async Task<IEnumerable<PostResponseDto>> GetAllAsync()
         {
-            var posts = await _unitOfWork.Posts.GetAllAsync();
-            return _mapper.Map<IEnumerable<PostResponseDto>>(posts);
+            var q = _unitOfWork.Posts.Query()
+                        .AsNoTracking()
+                        .Where(p => p.IsDeletedAt == null)
+                        .Include(p => p.Author)
+                        .Include(p => p.Reactions)
+                        .Include(p => p.Comments)
+                        .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
+
+            return await ProjectToDto(q).ToListAsync();
         }
 
         public async Task<PostResponseDto?> GetByIdAsync(Guid id)
         {
-            var post = await _unitOfWork.Posts.GetByIdAsync(id);
-            return post == null ? null : _mapper.Map<PostResponseDto>(post);
+            var q = _unitOfWork.Posts.Query()
+                        .AsNoTracking()
+                        .Where(p => p.Id == id && p.IsDeletedAt == null)
+                        .Include(p => p.Author)
+                        .Include(p => p.Reactions)
+                        .Include(p => p.Comments)
+                        .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
+
+            return await ProjectToDto(q).FirstOrDefaultAsync();
         }
 
         public async Task<IEnumerable<PostResponseDto>> GetByUserAsync(Guid userId)
         {
-            var posts = await _unitOfWork.Posts.GetPostsByUserAsync(userId);
-            return _mapper.Map<IEnumerable<PostResponseDto>>(posts);
+            var q = _unitOfWork.Posts.Query()
+                        .AsNoTracking()
+                        .Where(p => p.AuthorId == userId && p.IsDeletedAt == null)
+                        .Include(p => p.Author)
+                        .Include(p => p.Reactions)
+                        .Include(p => p.Comments)
+                        .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
+
+            return await ProjectToDto(q).ToListAsync();
         }
 
         public async Task<PostResponseDto> CreateAsync(Guid authorId, PostRequestDto request)
         {
+            var now = DateTime.UtcNow;
+
             var post = new Post
             {
                 Id = Guid.NewGuid(),
                 AuthorId = authorId,
                 Title = request.Title,
                 Content = request.Content,
-                CreatedAt = DateTime.UtcNow
+                IsQuestion = request.IsQuestion,
+                CreatedAt = now
             };
+
+            if (request.CategoryIds is { Count: > 0 })
+            {
+                post.CategoryPosts = request.CategoryIds.Select(cid => new CategoryPost
+                {
+                    PostId = post.Id,
+                    CategoryId = cid
+                }).ToList();
+            }
+
             await _unitOfWork.Posts.AddAsync(post);
             await _unitOfWork.SaveChangesAsync();
-            return _mapper.Map<PostResponseDto>(post);
+
+            var q = _unitOfWork.Posts.Query()
+                        .AsNoTracking()
+                        .Where(p => p.Id == post.Id)
+                        .Include(p => p.Author)
+                        .Include(p => p.Reactions)
+                        .Include(p => p.Comments)
+                        .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
+
+            return await ProjectToDto(q).FirstAsync();
         }
 
         public async Task<PostResponseDto?> UpdateAsync(Guid postId, PostRequestDto request)
         {
             var post = await _unitOfWork.Posts.GetByIdAsync(postId);
-            if (post == null) return null;
+            if (post == null || post.IsDeletedAt != null) return null;
 
             post.Title = request.Title;
             post.Content = request.Content;
+            post.IsQuestion = request.IsQuestion;
+            post.UpdatedAt = DateTime.UtcNow;
+
+            if (request.CategoryIds != null)
+            {
+                post.CategoryPosts ??= new List<CategoryPost>();
+                post.CategoryPosts.Clear();
+                foreach (var cid in request.CategoryIds)
+                {
+                    post.CategoryPosts.Add(new CategoryPost { PostId = post.Id, CategoryId = cid });
+                }
+            }
+
             _unitOfWork.Posts.Update(post);
             await _unitOfWork.SaveChangesAsync();
 
-            return _mapper.Map<PostResponseDto>(post);
+            var q = _unitOfWork.Posts.Query()
+                        .AsNoTracking()
+                        .Where(p => p.Id == postId)
+                        .Include(p => p.Author)
+                        .Include(p => p.Reactions)
+                        .Include(p => p.Comments)
+                        .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
+
+            return await ProjectToDto(q).FirstOrDefaultAsync();
         }
 
         public async Task<bool> DeleteAsync(Guid postId)
         {
             var post = await _unitOfWork.Posts.GetByIdAsync(postId);
             if (post == null) return false;
-            _unitOfWork.Posts.Remove(post);
+
+            post.IsDeletedAt = DateTime.UtcNow;
+            _unitOfWork.Posts.Update(post);
+
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
