@@ -25,5 +25,7 @@ namespace SmartPathBackend.Repositories
                         .Take(limit)
                         .Include(p => p.Author)
                         .ToListAsync();
+
+        public IQueryable<Post> Query() => _context.Posts;
     }
 }

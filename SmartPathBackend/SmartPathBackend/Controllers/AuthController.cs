@@ -27,9 +27,9 @@ namespace SmartPathBackend.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginRequest req)
         {
-            var tokens = await _auth.LoginAsync(req.EmailOrUsername, req.Password);
-            if (tokens is null) return Unauthorized("Invalid credentials");
-            return Ok(new { accessToken = tokens.Value.access, refreshToken = tokens.Value.refresh });
+            var result = await _auth.LoginAsync(req.EmailOrUsername, req.Password);
+            if (result is null) return Unauthorized("Invalid credentials");
+            return Ok(new { accessToken = result.AccessToken, refreshToken = result.RefreshToken, currentUserId=result.CurrentUserId });
         }
 
         public record RefreshDto(string RefreshToken);

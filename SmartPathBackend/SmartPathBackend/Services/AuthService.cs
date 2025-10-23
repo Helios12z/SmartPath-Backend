@@ -19,7 +19,7 @@ namespace SmartPathBackend.Services
             _uow = uow; _tokens = tokens;
         }
 
-        public async Task<(string access, string refresh)?> LoginAsync(string emailOrUsername, string password)
+        public async Task<AuthResponse?> LoginAsync(string emailOrUsername, string password)
         {
             var user = (await _uow.Users.FindAsync(u =>
                 u.Email == emailOrUsername || u.Username == emailOrUsername)).FirstOrDefault();
@@ -27,7 +27,11 @@ namespace SmartPathBackend.Services
             if (!BCrypt.Net.BCrypt.Verify(password, user.Password)) return null;
 
             var pair = _tokens.CreatePair(user.Id, user.Username, user.Role.ToString());
-            return pair;
+            var response=new AuthResponse();
+            response.AccessToken = pair.access;
+            response.RefreshToken = pair.refresh;
+            response.CurrentUserId=user.Id;
+            return response; 
         }
 
         public async Task<string?> RefreshAsync(string refreshToken)
