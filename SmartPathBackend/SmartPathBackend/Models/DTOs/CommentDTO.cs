@@ -14,6 +14,7 @@
         public Guid AuthorId { get; set; }
         public string AuthorUsername { get; set; } = null!;
         public string? AuthorAvatarUrl { get; set; }
+        public int AuthorPoint { get; set; }
         public DateTime CreatedAt { get; set; }
         public List<CommentResponseDto>? Replies { get; set; }
     }
