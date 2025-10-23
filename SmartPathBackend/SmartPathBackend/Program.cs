@@ -1,5 +1,8 @@
+using Amazon.Runtime;
+using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SmartPathBackend.Data;
 using SmartPathBackend.Interfaces;
@@ -9,6 +12,7 @@ using SmartPathBackend.Models.DTOs;
 using SmartPathBackend.Models.Options;
 using SmartPathBackend.Repositories;
 using SmartPathBackend.Services;
+using SmartPathBackend.Utils;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 
@@ -52,6 +56,26 @@ builder.Services.AddCors(options =>
         });
 });
 
+builder.Services.AddHttpClient();
+
+builder.Services.AddSingleton<IAmazonS3>(sp =>
+{
+    var r2 = sp.GetRequiredService<IOptions<R2Options>>().Value;
+
+    var cfg = new AmazonS3Config
+    {
+        ServiceURL = r2.ServiceUrl.TrimEnd('/'),   
+        ForcePathStyle = true
+    };
+
+    var creds = new BasicAWSCredentials(r2.AccessKeyId, r2.SecretAccessKey);
+    return new AmazonS3Client(creds, cfg);
+});
+
+builder.Services.Configure<ImgBbOptions>(builder.Configuration.GetSection("ImgBB"));
+builder.Services.Configure<R2Options>(builder.Configuration.GetSection("R2"));
+builder.Services.Configure<UploadPolicyOptions>(builder.Configuration.GetSection("UploadPolicy"));
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
@@ -63,6 +87,7 @@ builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ISystemLogRepository, SystemLogRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IMaterialRepository, MaterialRepository>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -79,6 +104,7 @@ builder.Services.AddScoped<IFriendshipService, FriendshipService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IMaterialService, MaterialService>();
 
 builder.Services.AddDbContext<SmartPathDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));

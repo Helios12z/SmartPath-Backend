@@ -30,7 +30,6 @@ namespace SmartPathBackend.Controllers
         [HttpPost("start")]
         public async Task<IActionResult> Start([FromBody] Chat req)
         {
-            // service nhận Entity Chat theo interface
             var chat = await _chats.StartChatAsync(req);
             return Ok(chat);
         }

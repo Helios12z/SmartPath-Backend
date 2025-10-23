@@ -16,6 +16,7 @@ namespace SmartPathBackend.Models.DTOs
             CreateMap<Message, MessageResponseDto>();
             CreateMap<Notification, NotificationResponseDto>();
             CreateMap<SystemLog, SystemLogResponseDto>();
+            CreateMap<Material, MaterialResponse>();
         }
     }
 }
