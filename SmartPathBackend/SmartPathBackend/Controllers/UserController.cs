@@ -29,6 +29,15 @@ namespace SmartPathBackend.Controllers
         [Authorize]
         public async Task<IActionResult> Create(UserRequestDto req)
         {
+            req.Role = Models.Enums.Role.Student;
+            var u = await _users.CreateAsync(req);
+            return u is null ? BadRequest() : CreatedAtAction(nameof(GetById), new { id = u.Id }, u);
+        }
+
+        [HttpPost("create-admin")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CreateAdmin(UserRequestDto req)
+        {
             var u = await _users.CreateAsync(req);
             return u is null ? BadRequest() : CreatedAtAction(nameof(GetById), new { id = u.Id }, u);
         }
