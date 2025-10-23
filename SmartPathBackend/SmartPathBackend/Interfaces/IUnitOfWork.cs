@@ -6,6 +6,7 @@ namespace SmartPathBackend.Interfaces
     {
         IUserRepository Users { get; }
         IPostRepository Posts { get; }
+        ICategoryRepository Categories { get; }
         ICommentRepository Comments { get; }
         IReactionRepository Reactions { get; }
         IReportRepository Reports { get; }

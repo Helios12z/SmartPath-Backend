@@ -1,4 +1,6 @@
-﻿namespace SmartPathBackend.Models.DTOs
+﻿using SmartPathBackend.Models.Enums;
+
+namespace SmartPathBackend.Models.DTOs
 {
     public class RegisterRequest
     {
@@ -6,6 +8,7 @@
         public string Username { get; set; } = default!;
         public string Password { get; set; } = default!;
         public string? FullName { get; set; }
+        public Role Role { get; set; }
     }
 
     public class LoginRequest
