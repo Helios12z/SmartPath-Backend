@@ -8,23 +8,26 @@ namespace SmartPathBackend.Services
 {
     public class ReactionService : IReactionService
     {
-        private readonly IUnitOfWork _unitOfWork;
+        private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
 
         public ReactionService(IUnitOfWork unitOfWork, IMapper mapper)
         {
-            _unitOfWork = unitOfWork;
+            _uow = unitOfWork;
             _mapper = mapper;
         }
 
         public async Task<ReactionResponseDto> ReactAsync(Guid userId, ReactionRequestDto request)
         {
-            var existing = await _unitOfWork.Reactions.GetUserReactionAsync(request.PostId, userId);
+            if ((request.PostId.HasValue == request.CommentId.HasValue))
+                throw new ArgumentException("Provide exactly one of PostId or CommentId.");
+
+            var existing = await _uow.Reactions.GetUserReactionAsync(request.PostId, request.CommentId, userId);
             if (existing != null)
             {
                 existing.IsPositive = request.IsPositive;
-                _unitOfWork.Reactions.Update(existing);
-                await _unitOfWork.SaveChangesAsync();
+                _uow.Reactions.Update(existing);
+                await _uow.SaveChangesAsync();
                 return _mapper.Map<ReactionResponseDto>(existing);
             }
 
@@ -32,23 +35,28 @@ namespace SmartPathBackend.Services
             {
                 Id = Guid.NewGuid(),
                 PostId = request.PostId,
+                CommentId = request.CommentId,
                 UserId = userId,
                 IsPositive = request.IsPositive,
                 CreatedAt = DateTime.UtcNow
             };
-            await _unitOfWork.Reactions.AddAsync(reaction);
-            await _unitOfWork.SaveChangesAsync();
+
+            await _uow.Reactions.AddAsync(reaction);
+            await _uow.SaveChangesAsync();
 
             return _mapper.Map<ReactionResponseDto>(reaction);
         }
 
-        public async Task<bool> RemoveReactionAsync(Guid postId, Guid userId)
+        public async Task<bool> RemoveReactionAsync(Guid userId, Guid? postId, Guid? commentId)
         {
-            var reaction = await _unitOfWork.Reactions.GetUserReactionAsync(postId, userId);
+            if ((postId.HasValue == commentId.HasValue))
+                throw new ArgumentException("Provide exactly one of postId or commentId.");
+
+            var reaction = await _uow.Reactions.GetUserReactionAsync(postId, commentId, userId);
             if (reaction == null) return false;
 
-            _unitOfWork.Reactions.Remove(reaction);
-            await _unitOfWork.SaveChangesAsync();
+            _uow.Reactions.Remove(reaction);
+            await _uow.SaveChangesAsync();
             return true;
         }
     }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
+using SmartPathBackend.Utils;
 using System.Security.Claims;
 
 namespace SmartPathBackend.Controllers
@@ -16,13 +17,18 @@ namespace SmartPathBackend.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> GetAll() => Ok(await _posts.GetAllAsync());
+        public async Task<IActionResult> GetAll()
+        {
+            var userId= User.GetUserIdOrNull();
+            return Ok(await _posts.GetAllAsync(userId));
+        }
 
         [HttpGet("{id:guid}")]
         [AllowAnonymous]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var p = await _posts.GetByIdAsync(id);
+            var userId = User.GetUserIdOrNull();
+            var p = await _posts.GetByIdAsync(id, userId);
             return p is null ? NotFound() : Ok(p);
         }
 
@@ -44,7 +50,8 @@ namespace SmartPathBackend.Controllers
         [Authorize]
         public async Task<IActionResult> Update(Guid id, PostRequestDto req)
         {
-            var p = await _posts.UpdateAsync(id, req);
+            var userId = User.GetUserIdOrThrow();
+            var p = await _posts.UpdateAsync(id, req, userId);
             return p is null ? NotFound() : Ok(p);
         }
 

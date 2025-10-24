@@ -17,5 +17,7 @@
         public int AuthorPoint { get; set; }
         public DateTime CreatedAt { get; set; }
         public List<CommentResponseDto>? Replies { get; set; }
+        public bool? IsPositiveReacted { get; set; }
+        public bool? IsNegativeReacted { get; set; }
     }
 }
