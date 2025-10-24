@@ -22,6 +22,7 @@ namespace SmartPathBackend.Repositories
         public INotificationRepository Notifications { get; }
         public ISystemLogRepository SystemLogs { get; }
         public IMaterialRepository Materials { get; }
+        public IBadgeRepository Badges { get; }
 
         public UnitOfWork(
             SmartPathDbContext context,
@@ -36,7 +37,8 @@ namespace SmartPathBackend.Repositories
             INotificationRepository notifications,
             ISystemLogRepository systemLogs,
             ICategoryRepository categories,
-            IMaterialRepository materials
+            IMaterialRepository materials,
+            IBadgeRepository badges
         )
         {
             _context = context;
@@ -53,6 +55,7 @@ namespace SmartPathBackend.Repositories
             Notifications = notifications;
             SystemLogs = systemLogs;
             Materials = materials;
+            Badges = badges;
         }
 
         public async Task BeginTransactionAsync()
