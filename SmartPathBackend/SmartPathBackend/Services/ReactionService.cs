@@ -19,10 +19,15 @@ namespace SmartPathBackend.Services
 
         public async Task<ReactionResponseDto> ReactAsync(Guid userId, ReactionRequestDto request)
         {
-            if ((request.PostId.HasValue == request.CommentId.HasValue))
+            var hasPost = request.PostId.HasValue;
+            var hasComment = request.CommentId.HasValue;
+            if (hasPost == hasComment)
                 throw new ArgumentException("Provide exactly one of PostId or CommentId.");
 
-            var existing = await _uow.Reactions.GetUserReactionAsync(request.PostId, request.CommentId, userId);
+            Reaction? existing = hasPost
+                ? await _uow.Reactions.GetUserPostReactionAsync(request.PostId!.Value, userId)
+                : await _uow.Reactions.GetUserCommentReactionAsync(request.CommentId!.Value, userId);
+
             if (existing != null)
             {
                 existing.IsPositive = request.IsPositive;
@@ -47,12 +52,19 @@ namespace SmartPathBackend.Services
             return _mapper.Map<ReactionResponseDto>(reaction);
         }
 
-        public async Task<bool> RemoveReactionAsync(Guid userId, Guid? postId, Guid? commentId)
+        public async Task<bool> RemovePostReactionAsync(Guid userId, Guid postId)
         {
-            if ((postId.HasValue == commentId.HasValue))
-                throw new ArgumentException("Provide exactly one of postId or commentId.");
+            var reaction = await _uow.Reactions.GetUserPostReactionAsync(postId, userId);
+            if (reaction == null) return false;
 
-            var reaction = await _uow.Reactions.GetUserReactionAsync(postId, commentId, userId);
+            _uow.Reactions.Remove(reaction);
+            await _uow.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> RemoveCommentReactionAsync(Guid userId, Guid commentId)
+        {
+            var reaction = await _uow.Reactions.GetUserCommentReactionAsync(commentId, userId);
             if (reaction == null) return false;
 
             _uow.Reactions.Remove(reaction);
