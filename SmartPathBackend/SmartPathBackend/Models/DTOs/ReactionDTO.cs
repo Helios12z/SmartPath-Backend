@@ -2,7 +2,8 @@
 {
     public class ReactionRequestDto
     {
-        public Guid PostId { get; set; }
+        public Guid? PostId { get; set; }
+        public Guid? CommentId { get; set; }
         public bool IsPositive { get; set; }
     }
 
