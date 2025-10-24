@@ -79,17 +79,39 @@ namespace SmartPathBackend.Data
                 .HasForeignKey(cp => cp.CategoryId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<Reaction>()
-                .HasOne(r => r.Post)
-                .WithMany(p => p.Reactions)
-                .HasForeignKey(r => r.PostId)
-                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Reaction>(eb =>
+            {
+                eb.HasOne(r => r.Post)
+                  .WithMany(p => p.Reactions)
+                  .HasForeignKey(r => r.PostId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<Reaction>()
-                .HasOne(r => r.User)
-                .WithMany(u => u.Reactions)
-                .HasForeignKey(r => r.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+                eb.HasOne(r => r.Comment)
+                  .WithMany(c => c.Reactions)
+                  .HasForeignKey(r => r.CommentId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+                eb.HasOne(r => r.User)
+                  .WithMany(u => u.Reactions)
+                  .HasForeignKey(r => r.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+                eb.ToTable(t => t.HasCheckConstraint(
+                    "ck_reactions_one_target",
+                    "((\"PostId\" IS NOT NULL AND \"CommentId\" IS NULL) OR (\"PostId\" IS NULL AND \"CommentId\" IS NOT NULL))"
+                ));
+
+                eb.HasIndex(r => new { r.UserId, r.PostId })
+                  .IsUnique()
+                  .HasFilter("\"PostId\" IS NOT NULL");
+
+                eb.HasIndex(r => new { r.UserId, r.CommentId })
+                  .IsUnique()
+                  .HasFilter("\"CommentId\" IS NOT NULL");
+            });
+
 
             modelBuilder.Entity<Report>()
                 .HasOne(r => r.Reporter)

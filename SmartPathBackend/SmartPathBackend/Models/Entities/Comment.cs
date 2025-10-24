@@ -13,5 +13,6 @@
         public User Author { get; set; } = null!;
         public Comment? ParentComment { get; set; }
         public ICollection<Comment>? Replies { get; set; }
+        public ICollection<Reaction>? Reactions { get; set; }
     }
 }
