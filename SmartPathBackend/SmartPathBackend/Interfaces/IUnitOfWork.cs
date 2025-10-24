@@ -16,6 +16,7 @@ namespace SmartPathBackend.Interfaces
         INotificationRepository Notifications { get; }
         ISystemLogRepository SystemLogs { get; }
         IMaterialRepository Materials { get; }
+        IBadgeRepository Badges { get; }
 
         Task BeginTransactionAsync();
         Task CommitTransactionAsync();
