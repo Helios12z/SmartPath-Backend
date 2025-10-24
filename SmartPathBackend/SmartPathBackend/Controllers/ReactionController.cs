@@ -24,12 +24,21 @@ namespace SmartPathBackend.Controllers
             return Ok(r);
         }
 
-        [HttpDelete]
+        [HttpDelete("remove-post-reaction/{postId:guid}")]
         [Authorize]
-        public async Task<IActionResult> Remove([FromBody] ReactionRequestDto req)
+        public async Task<IActionResult> RemovePostReaction(Guid postId)
         {
             var userId = User.GetUserIdOrThrow();
-            var ok = await _reactions.RemoveReactionAsync(userId, req.PostId, req.CommentId);
+            var ok = await _reactions.RemovePostReactionAsync(userId, postId);
+            return ok ? NoContent() : NotFound();
+        }
+
+        [HttpDelete("remove-comment-reaction/{commentId:guid}")]
+        [Authorize]
+        public async Task<IActionResult> RemoveCommentReaction(Guid commentId)
+        {
+            var userId = User.GetUserIdOrThrow();
+            var ok = await _reactions.RemoveCommentReactionAsync(userId, commentId);
             return ok ? NoContent() : NotFound();
         }
     }
