@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
+using SmartPathBackend.Utils;
 using System.Security.Claims;
 
 namespace SmartPathBackend.Controllers
@@ -16,8 +17,11 @@ namespace SmartPathBackend.Controllers
 
         [HttpGet("by-post/{postId:guid}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetByPost(Guid postId) =>
-            Ok(await _comments.GetByPostAsync(postId));
+        public async Task<IActionResult> GetByPost(Guid postId)
+        {
+            var userId = User.GetUserIdOrNull();
+            return Ok(await _comments.GetByPostAsync(postId, userId));
+        }
 
         [HttpPost]
         [Authorize]

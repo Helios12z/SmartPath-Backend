@@ -22,5 +22,7 @@
         public int ReactionCount { get; set; }
         public int CommentCount { get; set; }
         public List<string>? Categories { get; set; }
+        public bool? IsPositiveReacted { get; set; }
+        public bool? IsNegativeReacted { get; set; }
     }
 }

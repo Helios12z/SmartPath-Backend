@@ -11,6 +11,7 @@ namespace SmartPathBackend.Repositories
 
         public async Task<IEnumerable<Comment>> GetByPostAsync(Guid postId) =>
             await _dbSet.Include(c => c.Author)
+                        .Include(c=> c.Reactions)
                         .Include(c => c.Replies)
                         .Where(c => c.PostId == postId)
                         .ToListAsync();

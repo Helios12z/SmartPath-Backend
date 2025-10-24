@@ -16,7 +16,7 @@ namespace SmartPathBackend.Services
             _unitOfWork = unitOfWork;
         }
 
-        private static IQueryable<PostResponseDto> ProjectToDto(IQueryable<Post> query)
+        private static IQueryable<PostResponseDto> ProjectToDto(IQueryable<Post> query, Guid? currentUserId)
         {
             return query.Select(p => new PostResponseDto
             {
@@ -37,11 +37,19 @@ namespace SmartPathBackend.Services
 
                 Categories = p.CategoryPosts != null
                     ? p.CategoryPosts.Select(cp => cp.Category.Name).ToList()
-                    : new List<string>()
+                    : new List<string>(),
+
+                IsPositiveReacted = currentUserId.HasValue
+                    ? p.Reactions!.Any(r => r.UserId == currentUserId && r.IsPositive)
+                    : (bool?)null,
+
+                IsNegativeReacted = currentUserId.HasValue
+                    ? p.Reactions!.Any(r => r.UserId == currentUserId && !r.IsPositive)
+                    : (bool?)null,
             });
         }
 
-        public async Task<IEnumerable<PostResponseDto>> GetAllAsync()
+        public async Task<IEnumerable<PostResponseDto>> GetAllAsync(Guid? currentUserId)
         {
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
@@ -51,10 +59,10 @@ namespace SmartPathBackend.Services
                         .Include(p => p.Comments)
                         .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
 
-            return await ProjectToDto(q).ToListAsync();
+            return await ProjectToDto(q, currentUserId).ToListAsync();
         }
 
-        public async Task<PostResponseDto?> GetByIdAsync(Guid id)
+        public async Task<PostResponseDto?> GetByIdAsync(Guid id, Guid? currentUserId)
         {
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
@@ -64,7 +72,7 @@ namespace SmartPathBackend.Services
                         .Include(p => p.Comments)
                         .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
 
-            return await ProjectToDto(q).FirstOrDefaultAsync();
+            return await ProjectToDto(q, currentUserId).FirstOrDefaultAsync();
         }
 
         public async Task<IEnumerable<PostResponseDto>> GetByUserAsync(Guid userId)
@@ -77,7 +85,7 @@ namespace SmartPathBackend.Services
                         .Include(p => p.Comments)
                         .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
 
-            return await ProjectToDto(q).ToListAsync();
+            return await ProjectToDto(q, userId).ToListAsync();
         }
 
         public async Task<PostResponseDto> CreateAsync(Guid authorId, PostRequestDto request)
@@ -114,10 +122,10 @@ namespace SmartPathBackend.Services
                         .Include(p => p.Comments)
                         .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
 
-            return await ProjectToDto(q).FirstAsync();
+            return await ProjectToDto(q, authorId).FirstAsync();
         }
 
-        public async Task<PostResponseDto?> UpdateAsync(Guid postId, PostRequestDto request)
+        public async Task<PostResponseDto?> UpdateAsync(Guid postId, PostRequestDto request, Guid? currentUserId)
         {
             var post = await _unitOfWork.Posts.GetByIdAsync(postId);
             if (post == null || post.IsDeletedAt != null) return null;
@@ -148,7 +156,7 @@ namespace SmartPathBackend.Services
                         .Include(p => p.Comments)
                         .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
 
-            return await ProjectToDto(q).FirstOrDefaultAsync();
+            return await ProjectToDto(q, currentUserId).FirstOrDefaultAsync();
         }
 
         public async Task<bool> DeleteAsync(Guid postId)

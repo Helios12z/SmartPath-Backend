@@ -17,10 +17,34 @@ namespace SmartPathBackend.Services
             _mapper = mapper;
         }
 
-        public async Task<IEnumerable<CommentResponseDto>> GetByPostAsync(Guid postId)
+        public async Task<IEnumerable<CommentResponseDto>> GetByPostAsync(Guid postId, Guid? currentUserId)
         {
-            var comments = await _unitOfWork.Comments.GetByPostAsync(postId);
-            return _mapper.Map<IEnumerable<CommentResponseDto>>(comments);
+            var list = await _unitOfWork.Comments.GetByPostAsync(postId);
+
+            CommentResponseDto Map(Comment c) => new CommentResponseDto
+            {
+                Id = c.Id,
+                Content = c.Content,
+                AuthorId = c.AuthorId,
+                AuthorUsername = c.Author.Username,
+                AuthorAvatarUrl = c.Author.AvatarUrl,
+                AuthorPoint = c.Author.Point,
+                CreatedAt = c.CreatedAt,
+
+                IsPositiveReacted = currentUserId.HasValue
+                    ? c.Reactions!.Any(r => r.UserId == currentUserId && r.IsPositive)
+                    : (bool?)null,
+
+                IsNegativeReacted = currentUserId.HasValue
+                    ? c.Reactions!.Any(r => r.UserId == currentUserId && !r.IsPositive)
+                    : (bool?)null,
+
+                Replies = c.Replies != null
+                    ? c.Replies.Select(Map).ToList()
+                    : new List<CommentResponseDto>()
+            };
+
+            return list.Select(Map);
         }
 
         public async Task<CommentResponseDto> CreateAsync(Guid authorId, CommentRequestDto request)
