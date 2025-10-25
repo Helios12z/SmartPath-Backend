@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
+using SmartPathBackend.Utils;
 using System.Security.Claims;
 
 namespace SmartPathBackend.Controllers
@@ -22,7 +23,7 @@ namespace SmartPathBackend.Controllers
         [Authorize]
         public async Task<IActionResult> Mine()
         {
-            var uid = Guid.Parse(User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier)!);
+            var uid = User.GetUserIdOrThrow();
             return Ok(await _logs.GetByUserAsync(uid));
         }
     }

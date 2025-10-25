@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
+using SmartPathBackend.Utils;
 using System.Security.Claims;
 
 namespace SmartPathBackend.Controllers
@@ -15,14 +16,14 @@ namespace SmartPathBackend.Controllers
         [HttpGet("mine")]
         public async Task<IActionResult> Mine()
         {
-            var uid = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var uid = User.GetUserIdOrThrow();
             return Ok(await _noti.GetByReceiverAsync(uid));
         }
 
         [HttpGet("mine/unread-count")]
         public async Task<IActionResult> UnreadCount()
         {
-            var uid = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var uid = User.GetUserIdOrThrow();
             return Ok(await _noti.CountUnreadAsync(uid));
         }
 

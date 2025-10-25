@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.Entities;
+using SmartPathBackend.Utils;
 using System.Security.Claims;
 
 namespace SmartPathBackend.Controllers
@@ -16,7 +17,7 @@ namespace SmartPathBackend.Controllers
         [HttpGet("mine")]
         public async Task<IActionResult> MyChats()
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userId = User.GetUserIdOrThrow();
             return Ok(await _chats.GetChatsByUserAsync(userId));
         }
 
