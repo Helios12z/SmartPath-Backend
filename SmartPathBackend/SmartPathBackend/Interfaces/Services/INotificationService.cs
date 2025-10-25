@@ -8,5 +8,7 @@ namespace SmartPathBackend.Interfaces.Services
         Task<int> CountUnreadAsync(Guid receiverId);
         Task<bool> MarkAsReadAsync(Guid notificationId);
         Task CreateAsync(Guid receiverId, string type, string content, string? url = null);
+        Task<bool> DeleteAsync(Guid id, Guid receiverId);
+        Task<int> DeleteAllReadAsync(Guid receiverId);
     }
 }

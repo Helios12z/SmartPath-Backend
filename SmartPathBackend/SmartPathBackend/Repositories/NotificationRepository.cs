@@ -16,5 +16,12 @@ namespace SmartPathBackend.Repositories
 
         public async Task<int> CountUnreadAsync(Guid receiverId) =>
             await _dbSet.CountAsync(n => n.ReceiverId == receiverId && !n.IsRead);
+
+        public async Task<int> DeleteAllReadForReceiverAsync(Guid receiverId)
+        {
+            return await _dbSet
+                .Where(n => n.ReceiverId == receiverId && n.IsRead)
+                .ExecuteDeleteAsync();
+        }
     }
 }

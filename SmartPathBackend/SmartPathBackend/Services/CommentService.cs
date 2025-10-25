@@ -10,11 +10,13 @@ namespace SmartPathBackend.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly INotificationService _notifications;
 
-        public CommentService(IUnitOfWork unitOfWork, IMapper mapper)
+        public CommentService(IUnitOfWork unitOfWork, IMapper mapper, INotificationService notifications)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _notifications = notifications;
         }
 
         public async Task<IEnumerable<CommentResponseDto>> GetByPostAsync(Guid postId, Guid? currentUserId)
@@ -63,6 +65,24 @@ namespace SmartPathBackend.Services
             };
             await _unitOfWork.Comments.AddAsync(comment);
             await _unitOfWork.SaveChangesAsync();
+
+            if (request.ParentCommentId.HasValue)
+            {
+                var parent = await _unitOfWork.Comments.GetByIdAsync(request.ParentCommentId.Value);
+                if (parent != null && parent.AuthorId != authorId)
+                {
+                    var content = "Bình luận của bạn vừa có phản hồi.";
+                    var url = $"/posts/{comment.PostId}?c={comment.Id}";
+
+                    await _notifications.CreateAsync(
+                        receiverId: parent.AuthorId,
+                        type: "comment.reply",
+                        content: content,
+                        url: url
+                    );
+                }
+            }
+
             return _mapper.Map<CommentResponseDto>(comment);
         }
 

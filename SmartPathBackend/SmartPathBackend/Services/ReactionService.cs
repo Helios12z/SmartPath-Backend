@@ -10,11 +10,13 @@ namespace SmartPathBackend.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
+        private readonly INotificationService _notifications;
 
-        public ReactionService(IUnitOfWork unitOfWork, IMapper mapper)
+        public ReactionService(IUnitOfWork unitOfWork, IMapper mapper, INotificationService notifications)
         {
             _uow = unitOfWork;
             _mapper = mapper;
+            _notifications = notifications;
         }
 
         public async Task<ReactionResponseDto> ReactAsync(Guid userId, ReactionRequestDto request)
@@ -48,6 +50,38 @@ namespace SmartPathBackend.Services
 
             await _uow.Reactions.AddAsync(reaction);
             await _uow.SaveChangesAsync();
+
+            var verb = request.IsPositive ? "được like" : "bị dislike";
+
+            if (hasPost)
+            {
+                var post = await _uow.Posts.GetByIdAsync(request.PostId!.Value);
+                if (post != null && post.AuthorId != userId)
+                {
+                    await _notifications.CreateAsync(
+                        receiverId: post.AuthorId,
+                        type: "reaction.post",
+                        content: $"Bài viết của bạn {verb}.",
+                        url: $"/posts/{post.Id}"
+                    );
+                }
+            }
+            else 
+            {
+                var cmt = await _uow.Comments.GetByIdAsync(request.CommentId!.Value);
+                if (cmt != null && cmt.AuthorId != userId)
+                {
+                    var isReply = cmt.ParentCommentId.HasValue; 
+                    var what = isReply ? "Phản hồi của bạn" : "Bình luận của bạn";
+
+                    await _notifications.CreateAsync(
+                        receiverId: cmt.AuthorId,
+                        type: "reaction.comment",
+                        content: $"{what} {verb}.",
+                        url: $"/posts/{cmt.PostId}?c={cmt.Id}"
+                    );
+                }
+            }
 
             return _mapper.Map<ReactionResponseDto>(reaction);
         }
