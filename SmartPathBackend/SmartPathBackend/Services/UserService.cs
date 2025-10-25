@@ -85,6 +85,10 @@ namespace SmartPathBackend.Services
             user.FullName = request.FullName ?? user.FullName;
             user.Bio = request.Bio ?? user.Bio;
             user.AvatarUrl = request.AvatarUrl ?? user.AvatarUrl;
+            user.PhoneNumber = request.PhoneNumber ?? user.PhoneNumber;
+            user.Major = request.Major ?? user.Major;
+            user.Faculty = request.Faculty ?? user.Faculty;
+            user.YearOfStudy = request.YearOfStudy ?? user.YearOfStudy;
 
             _unitOfWork.Users.Update(user);
             await _unitOfWork.SaveChangesAsync();
