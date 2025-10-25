@@ -31,5 +31,6 @@ namespace SmartPathBackend.Models.DTOs
         public int? YearOfStudy { get; set; }
         public Role Role { get; set; } = Role.Student;
         public int Point { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }
