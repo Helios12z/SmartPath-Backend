@@ -19,7 +19,8 @@
         public string? AuthorUsername { get; set; } 
         public Guid AuthorId { get; set; } 
         public string? AuthorAvatarUrl { get; set; }
-        public int ReactionCount { get; set; }
+        public int PositiveReactionCount { get; set; }
+        public int NegativeReactionCount { get; set; }
         public int CommentCount { get; set; }
         public List<string>? Categories { get; set; }
         public bool? IsPositiveReacted { get; set; }

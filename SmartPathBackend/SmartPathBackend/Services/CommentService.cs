@@ -31,6 +31,9 @@ namespace SmartPathBackend.Services
                 AuthorPoint = c.Author.Point,
                 CreatedAt = c.CreatedAt,
 
+                PositiveReactionCount = c.Reactions != null ? c.Reactions.Count(r => r.IsPositive) : 0,
+                NegativeReactionCount = c.Reactions != null ? c.Reactions.Count(r => !r.IsPositive) : 0,
+
                 IsPositiveReacted = currentUserId.HasValue
                     ? c.Reactions!.Any(r => r.UserId == currentUserId && r.IsPositive)
                     : (bool?)null,
@@ -55,7 +58,8 @@ namespace SmartPathBackend.Services
                 AuthorId = authorId,
                 PostId = request.PostId,
                 Content = request.Content,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                ParentCommentId = request.ParentCommentId
             };
             await _unitOfWork.Comments.AddAsync(comment);
             await _unitOfWork.SaveChangesAsync();

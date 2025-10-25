@@ -31,7 +31,8 @@ namespace SmartPathBackend.Services
                 AuthorAvatarUrl = p.Author.AvatarUrl,
                 AuthorId = p.Author.Id,
 
-                ReactionCount = p.Reactions != null ? p.Reactions.Count() : 0,
+                PositiveReactionCount = p.Reactions != null ? p.Reactions.Count(r => r.IsPositive) : 0,
+                NegativeReactionCount = p.Reactions != null ? p.Reactions.Count(r => !r.IsPositive) : 0,
 
                 CommentCount = p.Comments != null ? p.Comments.Count() : 0,
 
