@@ -6,5 +6,6 @@ namespace SmartPathBackend.Interfaces.Repositories
     {
         Task<IEnumerable<Notification>> GetByReceiverAsync(Guid receiverId);
         Task<int> CountUnreadAsync(Guid receiverId);
+        Task<int> DeleteAllReadForReceiverAsync(Guid receiverId);
     }
 }

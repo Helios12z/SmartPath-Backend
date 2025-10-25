@@ -51,5 +51,21 @@ namespace SmartPathBackend.Services
             await _unitOfWork.Notifications.AddAsync(noti);
             await _unitOfWork.SaveChangesAsync();
         }
+
+        public async Task<bool> DeleteAsync(Guid id, Guid receiverId)
+        {
+            var noti = await _unitOfWork.Notifications.GetByIdAsync(id);
+            if (noti == null || noti.ReceiverId != receiverId) return false;
+
+            _unitOfWork.Notifications.Remove(noti);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+        
+        public async Task<int> DeleteAllReadAsync(Guid receiverId)
+        {
+            var affected = await _unitOfWork.Notifications.DeleteAllReadForReceiverAsync(receiverId);
+            return affected;
+        }
     }
 }

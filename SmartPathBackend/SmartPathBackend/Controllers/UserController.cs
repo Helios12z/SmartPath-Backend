@@ -13,7 +13,7 @@ namespace SmartPathBackend.Controllers
         public UserController(IUserService users) => _users = users;
 
         [HttpGet]
-        [Authorize(Roles = "Admin")]
+        [Authorize]
         public async Task<IActionResult> GetAll() =>
             Ok(await _users.GetAllAsync());
 

@@ -30,5 +30,20 @@ namespace SmartPathBackend.Controllers
         [HttpPut("{id:guid}/read")]
         public async Task<IActionResult> MarkRead(Guid id) =>
             await _noti.MarkAsReadAsync(id) ? NoContent() : NotFound();
+
+        [HttpDelete("{id:guid}")]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            var uid = User.GetUserIdOrThrow();
+            return await _noti.DeleteAsync(id, uid) ? NoContent() : NotFound();
+        }
+        
+        [HttpDelete("mine/read")]
+        public async Task<IActionResult> DeleteAllReadMine()
+        {
+            var uid = User.GetUserIdOrThrow();
+            var deleted = await _noti.DeleteAllReadAsync(uid);
+            return Ok(new { deleted });
+        }
     }
 }
