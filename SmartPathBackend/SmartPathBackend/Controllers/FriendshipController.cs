@@ -43,5 +43,23 @@ namespace SmartPathBackend.Controllers
             var ok = await _friendships.CancelFollowAsync(followerId, followedUserId);
             return ok ? NoContent() : NotFound();
         }
+
+        [HttpPost("{friendshipId:guid}/accept")]
+        [Authorize]
+        public async Task<IActionResult> Accept([FromRoute] Guid friendshipId)
+        {
+            var userId = User.GetUserIdOrThrow();
+            var result = await _friendships.AcceptAsync(userId, friendshipId);
+            return result is null ? NotFound() : Ok(result);
+        }
+
+        [HttpPost("{friendshipId:guid}/reject")]
+        [Authorize]
+        public async Task<IActionResult> Reject([FromRoute] Guid friendshipId)
+        {
+            var userId = User.GetUserIdOrThrow();
+            var ok = await _friendships.RejectAsync(userId, friendshipId);
+            return ok ? NoContent() : NotFound();
+        }
     }
 }
