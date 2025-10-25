@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
+using SmartPathBackend.Utils;
 using System.Security.Claims;
 
 namespace SmartPathBackend.Controllers
@@ -21,12 +22,6 @@ namespace SmartPathBackend.Controllers
             _mapper = mapper;
         }
 
-        private Guid GetUserId()
-        {
-            var id = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(ClaimTypes.Name);
-            return Guid.Parse(id!);
-        }
-
         [Authorize]
         [HttpPost("images")]
         [RequestSizeLimit(40_000_000)] 
@@ -34,7 +29,7 @@ namespace SmartPathBackend.Controllers
             [FromForm] MaterialCreateRequest meta,
             [FromForm] IFormFile file)
         {
-            var uid = GetUserId();
+            var uid = User.GetUserIdOrThrow();
             var res = await _service.UploadImageAsync(uid, meta, file);
             return Ok(res);
         }
@@ -46,7 +41,7 @@ namespace SmartPathBackend.Controllers
             [FromForm] MaterialCreateRequest meta,
             [FromForm] IFormFile[] files)
         {
-            var uid = GetUserId();
+            var uid = User.GetUserIdOrThrow();
             var res = await _service.UploadDocumentsAsync(uid, meta, files);
             return Ok(res);
         }
@@ -67,7 +62,8 @@ namespace SmartPathBackend.Controllers
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete([FromRoute] Guid id)
         {
-            var ok = await _service.DeleteAsync(id, GetUserId());
+            var uid = User.GetUserIdOrThrow();
+            var ok = await _service.DeleteAsync(id, uid);
             return ok ? NoContent() : Forbid();
         }
     }

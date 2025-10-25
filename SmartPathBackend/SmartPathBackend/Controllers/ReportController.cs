@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
+using SmartPathBackend.Utils;
 using System.Security.Claims;
 
 namespace SmartPathBackend.Controllers
@@ -22,7 +23,7 @@ namespace SmartPathBackend.Controllers
         [Authorize]
         public async Task<IActionResult> GetMine()
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userId = User.GetUserIdOrThrow();
             return Ok(await _reports.GetByReporterAsync(userId));
         }
 
@@ -30,7 +31,7 @@ namespace SmartPathBackend.Controllers
         [Authorize]
         public async Task<IActionResult> Create(ReportRequestDto req)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userId = User.GetUserIdOrThrow();
             var r = await _reports.CreateAsync(userId, req);
             return Ok(r);
         }

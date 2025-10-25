@@ -44,5 +44,19 @@ namespace SmartPathBackend.Services
 
             return _mapper.Map<FriendshipResponseDto>(friendship);
         }
+
+        public async Task<bool> CancelFollowAsync(Guid followerId, Guid followedUserId)
+        {
+            var relationship = await _unitOfWork.Friendships.GetRelationshipAsync(followerId, followedUserId);
+            if (relationship is null)
+                return false;
+
+            if (relationship.FollowerId != followerId)
+                return false;
+
+            _unitOfWork.Friendships.Remove(relationship);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
     }
 }

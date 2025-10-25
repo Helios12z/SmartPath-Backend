@@ -27,7 +27,7 @@ namespace SmartPathBackend.Controllers
         [Authorize]
         public async Task<IActionResult> Create(CommentRequestDto req)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userId = User.GetUserIdOrThrow();
             var c = await _comments.CreateAsync(userId, req);
             return Ok(c);
         }

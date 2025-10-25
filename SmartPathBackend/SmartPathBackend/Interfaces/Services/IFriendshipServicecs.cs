@@ -6,5 +6,6 @@ namespace SmartPathBackend.Interfaces.Services
     {
         Task<IEnumerable<FriendshipResponseDto>> GetFriendsAsync(Guid userId);
         Task<FriendshipResponseDto?> AddFriendAsync(Guid followerId, FriendshipRequestDto request);
+        Task<bool> CancelFollowAsync(Guid followerId, Guid followedUserId);
     }
 }
