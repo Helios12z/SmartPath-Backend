@@ -21,5 +21,18 @@ namespace SmartPathBackend.Repositories
                 u.Email.Contains(keyword) ||
                 (u.FullName != null && u.FullName.Contains(keyword))
             ).ToListAsync();
+
+        public async Task<IEnumerable<User>> GetByIdsAsync(IEnumerable<Guid> ids)
+        {
+            if (ids is null) return Enumerable.Empty<User>();
+
+            var set = ids as ISet<Guid> ?? new HashSet<Guid>(ids);
+            if (set.Count == 0) return Enumerable.Empty<User>();
+
+            return await _dbSet
+                .AsNoTracking()
+                .Where(u => set.Contains(u.Id))
+                .ToListAsync();
+        }
     }
 }

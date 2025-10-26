@@ -11,13 +11,15 @@ namespace SmartPathBackend.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly INotificationService _notification; 
+        private readonly INotificationService _notification;
+        private readonly IChatService _chats;
 
-        public FriendshipService(IUnitOfWork unitOfWork, IMapper mapper, INotificationService notification)
+        public FriendshipService(IUnitOfWork unitOfWork, IMapper mapper, INotificationService notification, IChatService chats)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _notification = notification; 
+            _notification = notification;
+            _chats = chats;
         }
 
         public async Task<IEnumerable<FriendshipResponseDto>> GetFriendsAsync(Guid userId)
@@ -75,6 +77,8 @@ namespace SmartPathBackend.Services
             relationship.Status = Status.Accepted;
             _unitOfWork.Friendships.Update(relationship);
             await _unitOfWork.SaveChangesAsync();
+
+            await _chats.GetOrCreateDirectChatAsync(relationship.FollowerId, relationship.FollowedUserId);
 
             await _notification.CreateAsync(
                 receiverId: relationship.FollowerId,

@@ -24,7 +24,8 @@ namespace SmartPathBackend.Controllers
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var c = await _chats.GetByIdAsync(id);
+            var me = User.GetUserIdOrThrow();
+            var c = await _chats.GetByIdForUserAsync(me, id);
             return c is null ? NotFound() : Ok(c);
         }
 
@@ -32,6 +33,14 @@ namespace SmartPathBackend.Controllers
         public async Task<IActionResult> Start([FromBody] Chat req)
         {
             var chat = await _chats.StartChatAsync(req);
+            return Ok(chat);
+        }
+
+        [HttpPost("direct/{otherUserId:guid}")]
+        public async Task<IActionResult> GetOrCreateDirect(Guid otherUserId)
+        {
+            var me = User.GetUserIdOrThrow();
+            var chat = await _chats.GetOrCreateDirectChatAsync(me, otherUserId);
             return Ok(chat);
         }
     }
