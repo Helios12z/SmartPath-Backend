@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
@@ -13,6 +14,7 @@ namespace SmartPathBackend.Controllers
         public BadgeController(IBadgeService badges) => _badges = badges;
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAll()
         {
             var list = await _badges.GetAllAsync();
@@ -20,6 +22,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpGet("{id:guid}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(Guid id)
         {
             var badge = await _badges.GetByIdAsync(id);
@@ -27,6 +30,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpGet("by-point/{point:int}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetByPoint(int point)
         {
             var badge = await _badges.GetByPointAsync(point);
@@ -34,6 +38,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpGet("by-name/{name}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetByName(string name)
         {
             var badge = await _badges.GetByNameAsync(name);
@@ -41,6 +46,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] BadgeRequestDTO request)
         {
             try
@@ -59,6 +65,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpPut("{id:guid}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(Guid id, [FromBody] BadgeRequestDTO request)
         {
             try
@@ -77,6 +84,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpDelete("{id:guid}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var ok = await _badges.DeleteAsync(id);
