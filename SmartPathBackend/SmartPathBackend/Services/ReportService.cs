@@ -49,20 +49,19 @@ namespace SmartPathBackend.Services
             return _mapper.Map<ReportResponseDto>(report);
         }
 
-        public async Task<bool> UpdateStatusAsync(Guid reportId, string status)
+        public async Task<bool> UpdateStatusAsync(Guid reportId, Status status)
         {
             var report = await _unitOfWork.Reports.GetByIdAsync(reportId);
-            if (report == null) return false;
+            if (report is null) return false;
 
-            if (Enum.TryParse(status, true, out Status parsed))
-            {
-                report.Status = parsed;
-                _unitOfWork.Reports.Update(report);
-                await _unitOfWork.SaveChangesAsync();
-                return true;
-            }
+            if (!Enum.IsDefined(typeof(Status), status)) return false;
 
-            return false;
+            if (report.Status == status) return true;
+
+            report.Status = status;
+            _unitOfWork.Reports.Update(report);
+            await _unitOfWork.SaveChangesAsync();
+            return true;
         }
     }
 }

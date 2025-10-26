@@ -6,6 +6,7 @@
         public string Action { get; set; } = null!;
         public string TargetType { get; set; } = null!;
         public Guid? UserId { get; set; }
+        public string? Url { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

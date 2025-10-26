@@ -13,7 +13,13 @@ namespace SmartPathBackend.Controllers
     public class CommentController : ControllerBase
     {
         private readonly ICommentService _comments;
-        public CommentController(ICommentService comments) => _comments = comments;
+        private readonly ISystemLogService _logs;
+
+        public CommentController(ICommentService comments, ISystemLogService logs)
+        {
+            _comments = comments;
+            _logs = logs;
+        }
 
         [HttpGet("by-post/{postId:guid}")]
         [AllowAnonymous]
@@ -25,24 +31,34 @@ namespace SmartPathBackend.Controllers
 
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> Create(CommentRequestDto req)
+        public async Task<IActionResult> Create([FromBody] CommentRequestDto req)
         {
             var userId = User.GetUserIdOrThrow();
             var c = await _comments.CreateAsync(userId, req);
+            await _logs.CreateAsync(userId, "create", "comment", $"/api/Post/{req.PostId}");
             return Ok(c);
         }
 
         [HttpPut("{id:guid}")]
         [Authorize]
-        public async Task<IActionResult> Update(Guid id, CommentRequestDto req)
+        public async Task<IActionResult> Update(Guid id, [FromBody] CommentRequestDto req)
         {
+            var userId = User.GetUserIdOrThrow();
             var c = await _comments.UpdateAsync(id, req);
-            return c is null ? NotFound() : Ok(c);
+            if (c is null) return NotFound();
+            await _logs.CreateAsync(userId, "update", "comment", $"/api/Comment/{id}");
+            return Ok(c);
         }
 
         [HttpDelete("{id:guid}")]
         [Authorize]
-        public async Task<IActionResult> Delete(Guid id) =>
-            await _comments.DeleteAsync(id) ? NoContent() : NotFound();
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            var userId = User.GetUserIdOrThrow();
+            var ok = await _comments.DeleteAsync(id);
+            if (!ok) return NotFound();
+            await _logs.CreateAsync(userId, "delete", "comment", $"/api/Comment/{id}");
+            return NoContent();
+        }
     }
 }

@@ -5,6 +5,7 @@ using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
 using SmartPathBackend.Utils;
 using System.Security.Claims;
+using static System.Reflection.Metadata.BlobBuilder;
 
 namespace SmartPathBackend.Controllers
 {
@@ -13,7 +14,12 @@ namespace SmartPathBackend.Controllers
     public class PostController : ControllerBase
     {
         private readonly IPostService _posts;
-        public PostController(IPostService posts) => _posts = posts;
+        private readonly ISystemLogService _logs; 
+        public PostController(IPostService posts, ISystemLogService logs)
+        {
+            _posts = posts;
+            _logs = logs;
+        }
 
         [HttpGet]
         [AllowAnonymous]
@@ -39,25 +45,34 @@ namespace SmartPathBackend.Controllers
 
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> Create(PostRequestDto req)
+        public async Task<IActionResult> Create([FromBody] PostRequestDto req)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userId = User.GetUserIdOrThrow();
             var p = await _posts.CreateAsync(userId, req);
-            return CreatedAtAction(nameof(GetById), new { id = p.Id }, p);
+            await _logs.CreateAsync(userId, "create", "post", $"/api/Post/{p.Id}");
+            return Ok(p);
         }
 
         [HttpPut("{id:guid}")]
         [Authorize]
-        public async Task<IActionResult> Update(Guid id, PostRequestDto req)
+        public async Task<IActionResult> Update(Guid id, [FromBody] PostRequestDto req)
         {
             var userId = User.GetUserIdOrThrow();
             var p = await _posts.UpdateAsync(id, req, userId);
-            return p is null ? NotFound() : Ok(p);
+            if (p is null) return NotFound();
+            await _logs.CreateAsync(userId, "update", "post", $"/api/Post/{id}");
+            return Ok(p);
         }
 
         [HttpDelete("{id:guid}")]
         [Authorize]
-        public async Task<IActionResult> Delete(Guid id) =>
-            await _posts.DeleteAsync(id) ? NoContent() : NotFound();
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            var userId = User.GetUserIdOrThrow();
+            var ok = await _posts.DeleteAsync(id);
+            if (!ok) return NotFound();
+            await _logs.CreateAsync(userId, "delete", "post", $"/api/Post/{id}");
+            return NoContent();
+        }
     }
 }
