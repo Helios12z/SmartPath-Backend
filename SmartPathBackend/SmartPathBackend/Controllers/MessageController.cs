@@ -18,7 +18,7 @@ namespace SmartPathBackend.Controllers
             Ok(await _messages.GetMessagesByChatAsync(chatId));
 
         [HttpPost]
-        public async Task<IActionResult> Send(MessageRequestDto req)
+        public async Task<IActionResult> Send([FromBody] MessageRequestDto req)
         {
             var senderId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var m = await _messages.SendMessageAsync(senderId, req);
@@ -26,7 +26,10 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpPut("{messageId:guid}/read")]
-        public async Task<IActionResult> MarkRead(Guid messageId) =>
-            await _messages.MarkAsReadAsync(messageId) ? NoContent() : NotFound();
+        public async Task<IActionResult> MarkRead(Guid messageId)
+        {
+            var readerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            return await _messages.MarkAsReadAsync(readerId, messageId) ? NoContent() : NotFound();
+        }
     }
 }
