@@ -27,6 +27,8 @@ namespace SmartPathBackend.Data
         public DbSet<Message> Messages => Set<Message>();
         public DbSet<Material> Materials => Set<Material>();
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<BotConversation> BotConversations => Set<BotConversation>();
+        public DbSet<BotMessage> BotMessages => Set<BotMessage>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -151,6 +153,31 @@ namespace SmartPathBackend.Data
 
             modelBuilder.Entity<User>()
                 .Property(u => u.CreatedAt);
+
+            modelBuilder.Entity<BotConversation>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.HasOne(x => x.Owner)
+                 .WithMany()
+                 .HasForeignKey(x => x.OwnerId)
+                 .OnDelete(DeleteBehavior.Cascade);
+                b.Property(x => x.Title).HasMaxLength(256);
+                b.HasIndex(x => new { x.OwnerId, x.CreatedAt });
+                b.HasIndex(x => new { x.OwnerId, x.UpdatedAt });
+            });
+
+            modelBuilder.Entity<BotMessage>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Role).HasConversion<int>();
+                b.Property(x => x.Content).IsRequired();
+                b.HasOne(x => x.Conversation)
+                 .WithMany(c => c.Messages)
+                 .HasForeignKey(x => x.ConversationId)
+                 .OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(x => new { x.ConversationId, x.CreatedAt });
+                b.HasIndex(x => new { x.SenderId, x.CreatedAt });
+            });
         }
     }
 }

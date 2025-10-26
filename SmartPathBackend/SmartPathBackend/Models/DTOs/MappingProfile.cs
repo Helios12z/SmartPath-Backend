@@ -29,6 +29,10 @@ namespace SmartPathBackend.Models.DTOs
             CreateMap<Notification, NotificationResponseDto>();
             CreateMap<SystemLog, SystemLogResponseDto>();
             CreateMap<Material, MaterialResponse>();
+
+            CreateMap<BotConversation, BotConversationResponse>()
+            .ForMember(d => d.MessageCount, o => o.MapFrom(s => (s.Messages ?? new List<BotMessage>()).Count));
+            CreateMap<BotMessage, BotMessageResponse>();
         }
     }
 }

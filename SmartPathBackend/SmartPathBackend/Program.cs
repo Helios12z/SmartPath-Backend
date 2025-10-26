@@ -113,6 +113,8 @@ builder.Services.AddScoped<ISystemLogRepository, SystemLogRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IMaterialRepository, MaterialRepository>();
 builder.Services.AddScoped<IBadgeRepository, BadgeRepository>();
+builder.Services.AddScoped<IBotConversationRepository, BotConversationRepository>();
+builder.Services.AddScoped<IBotMessageRepository, BotMessageRepository>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -131,6 +133,7 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IMaterialService, MaterialService>();
 builder.Services.AddScoped<IBadgeService, BadgeService>();
+builder.Services.AddScoped<IBotService, BotService>();
 
 builder.Services.AddDbContext<SmartPathDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
