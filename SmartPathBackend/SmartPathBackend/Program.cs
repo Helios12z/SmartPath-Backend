@@ -41,6 +41,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             NameClaimType = ClaimTypes.Name,
             RoleClaimType = ClaimTypes.Role
         };
+
+        o.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments("/hubs/messages"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddCors(options =>
@@ -55,6 +70,15 @@ builder.Services.AddCors(options =>
                 .AllowCredentials();
         });
 });
+
+builder.Services.AddSignalR()
+    .AddJsonProtocol(o => { o.PayloadSerializerOptions.PropertyNamingPolicy = null; })
+    .AddHubOptions<SmartPathBackend.Utils.MessageHub>(o =>   
+     {
+         o.EnableDetailedErrors = true;                       
+         o.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+         o.KeepAliveInterval = TimeSpan.FromSeconds(15);
+     });
 
 builder.Services.AddHttpClient();
 
@@ -139,5 +163,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<MessageHub>("/hubs/messages");
 
 app.Run();

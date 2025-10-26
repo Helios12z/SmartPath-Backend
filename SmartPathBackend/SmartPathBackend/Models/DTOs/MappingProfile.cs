@@ -16,15 +16,16 @@ namespace SmartPathBackend.Models.DTOs
             CreateMap<Reaction, ReactionResponseDto>();
             CreateMap<Report, ReportResponseDto>();
             CreateMap<Friendship, FriendshipResponseDto>();
-            CreateMap<Message, MessageResponseDto>()
-            .ForMember(d => d.SenderUsername,
-                opt => opt.MapFrom(s => s.Sender != null ? s.Sender.Username : string.Empty));
 
+            CreateMap<Message, MessageResponseDto>()
+            .ForMember(d => d.ChatId, opt => opt.MapFrom(s => s.ChatId))
+            .ForMember(d => d.SenderUsername, opt => opt.MapFrom(s => s.Sender.Username));
             CreateMap<Chat, ChatResponseDto>()
                 .ForMember(d => d.Member1Id, opt => opt.MapFrom(s => s.Member1Id))
                 .ForMember(d => d.Member2Id, opt => opt.MapFrom(s => s.Member2Id))
                 .ForMember(d => d.Messages,
                     opt => opt.MapFrom(s => (s.Messages ?? new List<Message>()).OrderBy(m => m.CreatedAt)));
+
             CreateMap<Notification, NotificationResponseDto>();
             CreateMap<SystemLog, SystemLogResponseDto>();
             CreateMap<Material, MaterialResponse>();
