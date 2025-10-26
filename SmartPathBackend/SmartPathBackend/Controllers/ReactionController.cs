@@ -13,14 +13,21 @@ namespace SmartPathBackend.Controllers
     public class ReactionController : ControllerBase
     {
         private readonly IReactionService _reactions;
-        public ReactionController(IReactionService reactions) => _reactions = reactions;
+        private readonly ISystemLogService _logs;
+
+        public ReactionController(IReactionService reactions, ISystemLogService logs)
+        {
+            _reactions = reactions;
+            _logs = logs;
+        }
 
         [HttpPost]
-        [Authorize] 
+        [Authorize]
         public async Task<IActionResult> React([FromBody] ReactionRequestDto req)
         {
             var userId = User.GetUserIdOrThrow();
             var r = await _reactions.ReactAsync(userId, req);
+            await _logs.CreateAsync(userId, "create", "reaction", null);
             return Ok(r);
         }
 
@@ -30,7 +37,9 @@ namespace SmartPathBackend.Controllers
         {
             var userId = User.GetUserIdOrThrow();
             var ok = await _reactions.RemovePostReactionAsync(userId, postId);
-            return ok ? NoContent() : NotFound();
+            if (!ok) return NotFound();
+            await _logs.CreateAsync(userId, "delete", "reaction", $"/api/Post/{postId}");
+            return NoContent();
         }
 
         [HttpDelete("remove-comment-reaction/{commentId:guid}")]
@@ -39,7 +48,9 @@ namespace SmartPathBackend.Controllers
         {
             var userId = User.GetUserIdOrThrow();
             var ok = await _reactions.RemoveCommentReactionAsync(userId, commentId);
-            return ok ? NoContent() : NotFound();
+            if (!ok) return NotFound();
+            await _logs.CreateAsync(userId, "delete", "reaction", $"/api/Comment/{commentId}");
+            return NoContent();
         }
     }
 }
