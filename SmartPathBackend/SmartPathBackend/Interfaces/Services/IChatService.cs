@@ -5,8 +5,9 @@ namespace SmartPathBackend.Interfaces.Services
 {
     public interface IChatService
     {
-        Task<Chat> StartChatAsync(Chat request);
         Task<IEnumerable<ChatResponseDto>> GetChatsByUserAsync(Guid userId);
-        Task<ChatResponseDto?> GetByIdAsync(Guid chatId);
+        Task<ChatResponseDto?> GetByIdForUserAsync(Guid userId, Guid chatId); 
+        Task<ChatResponseDto> GetOrCreateDirectChatAsync(Guid userA, Guid userB);
+        Task<Chat> StartChatAsync(Chat request);
     }
 }

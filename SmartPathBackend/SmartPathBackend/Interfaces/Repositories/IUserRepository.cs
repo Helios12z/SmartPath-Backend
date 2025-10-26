@@ -7,5 +7,6 @@ namespace SmartPathBackend.Interfaces.Repositories
         Task<User?> GetByEmailAsync(string email);
         Task<User?> GetByUsernameAsync(string username);
         Task<IEnumerable<User>> SearchAsync(string keyword);
+        Task<IEnumerable<User>> GetByIdsAsync(IEnumerable<Guid> ids);
     }
 }
