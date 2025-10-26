@@ -31,6 +31,7 @@ namespace SmartPathBackend.Repositories
             var convo = await _db.BotConversations
                 .Where(c => c.Id == id && c.OwnerId == ownerId)
                 .Include(c => c.Messages!.OrderByDescending(m => m.CreatedAt))
+                .AsNoTracking()
                 .FirstOrDefaultAsync();
 
             if (convo == null || convo.Messages == null) return convo;
@@ -46,5 +47,10 @@ namespace SmartPathBackend.Repositories
             convo.Messages = msgs.OrderBy(m => m.CreatedAt).ToList();
             return convo;
         }
+
+        public Task<int> TouchUpdatedAtAsync(Guid conversationId, DateTime now) =>
+            _db.BotConversations
+           .Where(c => c.Id == conversationId)
+           .ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedAt, now));
     }
 }

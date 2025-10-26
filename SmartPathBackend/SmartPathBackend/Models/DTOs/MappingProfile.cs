@@ -33,6 +33,8 @@ namespace SmartPathBackend.Models.DTOs
             CreateMap<BotConversation, BotConversationResponse>()
             .ForMember(d => d.MessageCount, o => o.MapFrom(s => (s.Messages ?? new List<BotMessage>()).Count));
             CreateMap<BotMessage, BotMessageResponse>();
+            CreateMap<BotConversation, BotConversationWithMessagesResponse>()
+            .IncludeBase<BotConversation, BotConversationResponse>();
         }
     }
 }

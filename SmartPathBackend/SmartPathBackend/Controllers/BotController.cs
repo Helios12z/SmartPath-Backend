@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
+using SmartPathBackend.Models.Enums;
 using System.Security.Claims;
 
 namespace SmartPathBackend.Controllers
@@ -11,11 +12,16 @@ namespace SmartPathBackend.Controllers
     public class BotController : ControllerBase
     {
         private readonly IBotService _svc;
-        public BotController(IBotService svc) => _svc = svc;
+        private readonly ILLMService _llm; 
+
+        public BotController(IBotService svc, ILLMService llm) 
+        {
+            _svc = svc;
+            _llm = llm;
+        }
 
         private Guid GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        // Conversations
         [HttpPost("conversations")]
         public async Task<IActionResult> Create([FromBody] BotConversationCreateRequest req)
         {
@@ -56,7 +62,6 @@ namespace SmartPathBackend.Controllers
             return ok ? NoContent() : NotFound();
         }
 
-        // Messages
         [HttpPost("messages")]
         public async Task<IActionResult> Append([FromBody] BotMessageRequest req)
         {
@@ -79,6 +84,48 @@ namespace SmartPathBackend.Controllers
             var uid = GetUserId();
             var ok = await _svc.DeleteMessageAsync(uid, id);
             return ok ? NoContent() : NotFound();
+        }
+
+        [HttpPost("generate")]
+        public async Task<IActionResult> Generate([FromBody] BotGenerateRequest req, CancellationToken ct)
+        {
+            var uid = GetUserId();
+
+            var userMsg = await _svc.AppendMessageAsync(uid, new BotMessageRequest
+            {
+                ConversationId = req.ConversationId,
+                Role = BotMessageRole.User,
+                Content = req.UserContent
+            });
+
+            var limit = req.ContextLimit ?? 20;
+            var ctx = await _svc.GetMessagesAsync(uid, req.ConversationId, limit);
+
+            var forLlm = ctx.Select(m => (
+                m.Role == BotMessageRole.Assistant ? "assistant" :
+                m.Role == BotMessageRole.System ? "system" : "user",
+                m.Content
+            ));
+
+            var completion = await _llm.CompleteAsync(
+                req.SystemPrompt,
+                forLlm,
+                req.Model,
+                ct
+            );
+
+            var assistantMsg = await _svc.AppendMessageAsync(uid, new BotMessageRequest
+            {
+                ConversationId = req.ConversationId,
+                Role = BotMessageRole.Assistant,
+                Content = completion
+            });
+
+            return Ok(new BotGenerateResponse
+            {
+                UserMessage = userMsg,
+                AssistantMessage = assistantMsg
+            });
         }
     }
 }

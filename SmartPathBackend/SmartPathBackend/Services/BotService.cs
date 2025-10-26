@@ -105,7 +105,6 @@ namespace SmartPathBackend.Services
 
         public async Task<BotMessageResponse> AppendMessageAsync(Guid ownerId, BotMessageRequest req)
         {
-            // quyền sở hữu
             var convo = await _uow.BotConversations.GetByIdAsync(req.ConversationId);
             if (convo == null || convo.OwnerId != ownerId)
                 throw new UnauthorizedAccessException();
@@ -115,7 +114,7 @@ namespace SmartPathBackend.Services
             {
                 Id = Guid.NewGuid(),
                 ConversationId = req.ConversationId,
-                SenderId = ownerId, // ràng về chủ sở hữu; phân biệt bot/user bằng Role
+                SenderId = ownerId,
                 Role = req.Role,
                 Content = req.Content,
                 CreatedAt = now,
@@ -128,9 +127,8 @@ namespace SmartPathBackend.Services
 
             await _uow.BotMessages.AddAsync(entity);
 
-            // bump UpdatedAt để session “nổi” lên
             convo.UpdatedAt = now;
-            _uow.BotConversations.Update(convo);
+            await _uow.BotConversations.TouchUpdatedAtAsync(req.ConversationId, now);
 
             await _uow.SaveChangesAsync();
             return _mapper.Map<BotMessageResponse>(entity);

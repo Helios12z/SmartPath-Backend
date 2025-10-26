@@ -13,6 +13,7 @@ using SmartPathBackend.Models.Options;
 using SmartPathBackend.Repositories;
 using SmartPathBackend.Services;
 using SmartPathBackend.Utils;
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 
@@ -96,6 +97,28 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
     return new AmazonS3Client(creds, cfg);
 });
 
+builder.Services.Configure<LLMOptions>(builder.Configuration.GetSection("LLM"));
+
+builder.Services.AddHttpClient("Gemini", (sp, http) =>
+{
+    var opt = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<LLMOptions>>().Value;
+    http.BaseAddress = new Uri(opt.BaseUrl ?? "https://generativelanguage.googleapis.com");
+    if (!string.IsNullOrWhiteSpace(opt.ApiKey))
+        http.DefaultRequestHeaders.Add("x-goog-api-key", opt.ApiKey);
+    http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+
+builder.Services.AddHttpClient("OpenAI", (sp, http) =>
+{
+    var opt = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<LLMOptions>>().Value;
+    http.BaseAddress = new Uri(opt.BaseUrl ?? "https://api.openai.com/v1");
+    if (!string.IsNullOrWhiteSpace(opt.ApiKey))
+        http.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", opt.ApiKey);
+    http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+
+
 builder.Services.Configure<ImgBbOptions>(builder.Configuration.GetSection("ImgBB"));
 builder.Services.Configure<R2Options>(builder.Configuration.GetSection("R2"));
 builder.Services.Configure<UploadPolicyOptions>(builder.Configuration.GetSection("UploadPolicy"));
@@ -134,6 +157,9 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IMaterialService, MaterialService>();
 builder.Services.AddScoped<IBadgeService, BadgeService>();
 builder.Services.AddScoped<IBotService, BotService>();
+builder.Services.AddScoped<ILLMProvider, GeminiLLMProvider>();
+builder.Services.AddScoped<ILLMProvider, OpenAILLMProvider>();
+builder.Services.AddScoped<ILLMService, LLMService>();
 
 builder.Services.AddDbContext<SmartPathDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
