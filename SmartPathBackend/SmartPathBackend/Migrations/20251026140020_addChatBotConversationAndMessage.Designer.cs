@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartPathBackend.Data;
@@ -11,9 +12,11 @@ using SmartPathBackend.Data;
 namespace SmartPathBackend.Migrations
 {
     [DbContext(typeof(SmartPathDbContext))]
-    partial class SmartPathDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251026140020_addChatBotConversationAndMessage")]
+    partial class addChatBotConversationAndMessage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
