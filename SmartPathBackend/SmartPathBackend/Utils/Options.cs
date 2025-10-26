@@ -30,4 +30,12 @@
             public string[]? AllowedExtensions { get; set; }
         }
     }
+
+    public class LLMOptions
+    {
+        public string Provider { get; set; } = "Gemini"; 
+        public string ApiKey { get; set; } = null!;
+        public string? BaseUrl { get; set; }
+        public string? Model { get; set; }
+    }
 }
