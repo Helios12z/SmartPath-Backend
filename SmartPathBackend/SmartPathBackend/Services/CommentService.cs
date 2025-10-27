@@ -1,4 +1,6 @@
-﻿using AutoMapper;
+﻿using Amazon.Runtime.Internal.Endpoints.StandardLibrary;
+using AutoMapper;
+using Microsoft.Extensions.FileProviders.Physical;
 using SmartPathBackend.Interfaces;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
@@ -66,21 +68,31 @@ namespace SmartPathBackend.Services
             await _unitOfWork.Comments.AddAsync(comment);
             await _unitOfWork.SaveChangesAsync();
 
+            var url = $"/posts/{comment.PostId}?c={comment.Id}";
+
             if (request.ParentCommentId.HasValue)
             {
                 var parent = await _unitOfWork.Comments.GetByIdAsync(request.ParentCommentId.Value);
                 if (parent != null && parent.AuthorId != authorId)
                 {
-                    var content = "Bình luận của bạn vừa có phản hồi.";
-                    var url = $"/posts/{comment.PostId}?c={comment.Id}";
-
                     await _notifications.CreateAsync(
                         receiverId: parent.AuthorId,
                         type: "comment.reply",
-                        content: content,
+                        content: "Bình luận của bạn vừa có phản hồi.",
                         url: url
                     );
                 }
+            }
+
+            var post = await _unitOfWork.Posts.GetByIdAsync(comment.PostId);
+            if (post != null && post.AuthorId != authorId && !request.ParentCommentId.HasValue)
+            {
+                await _notifications.CreateAsync(
+                    receiverId: post.AuthorId,
+                    type: "comment.on_post",
+                    content: "Bài viết của bạn vừa có bình luận mới.",
+                    url: url
+                );
             }
 
             return _mapper.Map<CommentResponseDto>(comment);
