@@ -18,6 +18,7 @@
         public DateTime? UpdatedAt { get; set; }
         public string? AuthorUsername { get; set; } 
         public Guid AuthorId { get; set; } 
+        public int AuthorPoint { get; set; }
         public string? AuthorAvatarUrl { get; set; }
         public int PositiveReactionCount { get; set; }
         public int NegativeReactionCount { get; set; }
