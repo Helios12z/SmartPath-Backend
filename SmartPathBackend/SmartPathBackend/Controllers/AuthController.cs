@@ -54,22 +54,48 @@ namespace SmartPathBackend.Controllers
                 return BadRequest("Missing required fields");
             }
 
-            var created = await _userService.CreateAsync(new UserRequestDto
+            try
             {
-                Email = req.Email,
-                Username = req.Username,
-                Password = req.Password,
-                FullName = req.FullName,
-                Role= req.Role
-            });
+                var created = await _userService.CreateAsync(new UserRequestDto
+                {
+                    Email = req.Email,
+                    Username = req.Username,
+                    Password = req.Password,
+                    FullName = req.FullName,
+                    Role = req.Role
+                });
 
-            if (created == null) return BadRequest("Failed to create user");
+                if (created == null)
+                    return BadRequest(new ApiError("user.create_failed", "Failed to create user."));
 
-            return Ok(new
+                return Ok(new
+                {
+                    message = "Registration successful. Please log in to continue.",
+                    user = created
+                });
+            }
+            catch (InvalidOperationException ex)
             {
-                message = "Registration successful. Please log in to continue.",
-                user = created
-            });
+                var field = ex.Message.Contains("Email", StringComparison.OrdinalIgnoreCase)
+                    ? "email"
+                    : ex.Message.Contains("Username", StringComparison.OrdinalIgnoreCase)
+                        ? "username"
+                        : null;
+
+                return Conflict(new ApiError(
+                    code: field == "email" ? "user.duplicate_email" :
+                          field == "username" ? "user.duplicate_username" :
+                          "user.conflict",
+                    message: ex.Message,
+                    field: field
+                ));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new ApiError("validation.error", ex.Message));
+            }
         }
     }
+
+    public record ApiError(string code, string message, string? field = null);
 }

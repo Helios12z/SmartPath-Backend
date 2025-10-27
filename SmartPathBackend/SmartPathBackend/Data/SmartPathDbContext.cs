@@ -29,6 +29,7 @@ namespace SmartPathBackend.Data
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<BotConversation> BotConversations => Set<BotConversation>();
         public DbSet<BotMessage> BotMessages => Set<BotMessage>();
+        public DbSet<ReputationCheckpoint> ReputationCheckpoints { get; set; } = default!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -177,6 +178,14 @@ namespace SmartPathBackend.Data
                  .OnDelete(DeleteBehavior.Cascade);
                 b.HasIndex(x => new { x.ConversationId, x.CreatedAt });
                 b.HasIndex(x => new { x.SenderId, x.CreatedAt });
+            });
+
+            modelBuilder.Entity<ReputationCheckpoint>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => new { x.ContentType, x.ContentId }).IsUnique();
+                e.Property(x => x.LikeBandsApplied).HasDefaultValue(0);
+                e.Property(x => x.DislikeBandsApplied).HasDefaultValue(0);
             });
         }
     }
