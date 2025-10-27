@@ -11,12 +11,14 @@ namespace SmartPathBackend.Services
         private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
         private readonly INotificationService _notifications;
+        private readonly IReputationService _reputation;
 
-        public ReactionService(IUnitOfWork unitOfWork, IMapper mapper, INotificationService notifications)
+        public ReactionService(IUnitOfWork unitOfWork, IMapper mapper, INotificationService notifications, IReputationService reputation)
         {
             _uow = unitOfWork;
             _mapper = mapper;
             _notifications = notifications;
+            _reputation = reputation;
         }
 
         public async Task<ReactionResponseDto> ReactAsync(Guid userId, ReactionRequestDto request)
@@ -34,6 +36,13 @@ namespace SmartPathBackend.Services
             {
                 existing.IsPositive = request.IsPositive;
                 _uow.Reactions.Update(existing);
+
+                //update reputation point for users
+                if (hasPost)
+                    await _reputation.ApplyForPostAsync(request.PostId!.Value);
+                else
+                    await _reputation.ApplyForCommentAsync(request.CommentId!.Value);
+
                 await _uow.SaveChangesAsync();
                 return _mapper.Map<ReactionResponseDto>(existing);
             }
@@ -50,6 +59,12 @@ namespace SmartPathBackend.Services
 
             await _uow.Reactions.AddAsync(reaction);
             await _uow.SaveChangesAsync();
+
+            //count reputation points for users
+            if (hasPost)
+                await _reputation.ApplyForPostAsync(request.PostId!.Value);
+            else
+                await _reputation.ApplyForCommentAsync(request.CommentId!.Value);
 
             var verb = request.IsPositive ? "được like" : "bị dislike";
 
@@ -93,6 +108,10 @@ namespace SmartPathBackend.Services
 
             _uow.Reactions.Remove(reaction);
             await _uow.SaveChangesAsync();
+
+            //count reputation points for users
+            await _reputation.ApplyForPostAsync(postId);
+
             return true;
         }
 
@@ -103,6 +122,10 @@ namespace SmartPathBackend.Services
 
             _uow.Reactions.Remove(reaction);
             await _uow.SaveChangesAsync();
+
+            //count reputation points for users
+            await _reputation.ApplyForCommentAsync(commentId);
+
             return true;
         }
     }

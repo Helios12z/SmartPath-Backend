@@ -160,6 +160,7 @@ builder.Services.AddScoped<IBotService, BotService>();
 builder.Services.AddScoped<ILLMProvider, GeminiLLMProvider>();
 builder.Services.AddScoped<ILLMProvider, OpenAILLMProvider>();
 builder.Services.AddScoped<ILLMService, LLMService>();
+builder.Services.AddScoped<IReputationService, ReputationService>();
 
 builder.Services.AddDbContext<SmartPathDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
