@@ -5,6 +5,8 @@ using Microsoft.IdentityModel.Tokens;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
 using SmartPathBackend.Models.Options;
+using SmartPathBackend.Services;
+using SmartPathBackend.Utils;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -46,27 +48,9 @@ namespace SmartPathBackend.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterRequest req)
         {
-            if (string.IsNullOrWhiteSpace(req.Email) ||
-                string.IsNullOrWhiteSpace(req.Username) ||
-                string.IsNullOrWhiteSpace(req.Password) ||
-                string.IsNullOrWhiteSpace(req.FullName)) 
-            {
-                return BadRequest("Missing required fields");
-            }
-
             try
             {
-                var created = await _userService.CreateAsync(new UserRequestDto
-                {
-                    Email = req.Email,
-                    Username = req.Username,
-                    Password = req.Password,
-                    FullName = req.FullName,
-                    Role = req.Role
-                });
-
-                if (created == null)
-                    return BadRequest(new ApiError("user.create_failed", "Failed to create user."));
+                var created = await _auth.RegisterAsync(req);
 
                 return Ok(new
                 {
@@ -74,25 +58,25 @@ namespace SmartPathBackend.Controllers
                     user = created
                 });
             }
-            catch (InvalidOperationException ex)
+            catch (DomainConflictException ex)
             {
-                var field = ex.Message.Contains("Email", StringComparison.OrdinalIgnoreCase)
-                    ? "email"
-                    : ex.Message.Contains("Username", StringComparison.OrdinalIgnoreCase)
-                        ? "username"
-                        : null;
-
-                return Conflict(new ApiError(
-                    code: field == "email" ? "user.duplicate_email" :
-                          field == "username" ? "user.duplicate_username" :
-                          "user.conflict",
-                    message: ex.Message,
-                    field: field
-                ));
+                return Conflict(new ApiError(ex.Code, ex.Message, ex.Field));
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new ApiError("validation.error", ex.Message));
+                var isPwd = ex.Message.Contains("Password") && ex.Message.Contains("6");
+                var code = isPwd ? "validation.password_short" : "validation.error";
+                var field = isPwd ? "password" : null;
+
+                return BadRequest(new ApiError(code, ex.Message, field));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new ApiError("user.create_failed", ex.Message));
+            }
+            catch
+            {
+                return StatusCode(500, new ApiError("server.error", "Unexpected server error"));
             }
         }
     }
