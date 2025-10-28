@@ -6,5 +6,6 @@ namespace SmartPathBackend.Interfaces.Services
     {
         Task<AuthResponse?> LoginAsync(string emailOrUsername, string password);
         Task<string?> RefreshAsync(string refreshToken);
+        Task<UserResponseDto> RegisterAsync(RegisterRequest req);
     }
 }

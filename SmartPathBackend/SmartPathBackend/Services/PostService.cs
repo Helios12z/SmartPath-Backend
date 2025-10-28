@@ -132,6 +132,8 @@ namespace SmartPathBackend.Services
             var post = await _unitOfWork.Posts.GetByIdAsync(postId);
             if (post == null || post.IsDeletedAt != null) return null;
 
+            if (currentUserId!=post.AuthorId) throw new UnauthorizedAccessException("Not authorized to update this post");
+
             post.Title = request.Title;
             post.Content = request.Content;
             post.IsQuestion = request.IsQuestion;
