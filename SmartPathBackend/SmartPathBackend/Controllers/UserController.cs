@@ -18,7 +18,7 @@ namespace SmartPathBackend.Controllers
             Ok(await _users.GetAllAsync());
 
         [HttpGet("{id:guid}")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(Guid id)
         {
             var u = await _users.GetByIdAsync(id);

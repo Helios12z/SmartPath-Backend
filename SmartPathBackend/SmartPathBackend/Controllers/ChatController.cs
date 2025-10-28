@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.Entities;
@@ -15,6 +16,7 @@ namespace SmartPathBackend.Controllers
         public ChatController(IChatService chats) => _chats = chats;
 
         [HttpGet("mine")]
+        [Authorize]
         public async Task<IActionResult> MyChats()
         {
             var userId = User.GetUserIdOrThrow();
@@ -22,6 +24,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpGet("{id:guid}")]
+        [Authorize]
         public async Task<IActionResult> GetById(Guid id)
         {
             var me = User.GetUserIdOrThrow();
@@ -30,6 +33,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpPost("start")]
+        [Authorize]
         public async Task<IActionResult> Start([FromBody] Chat req)
         {
             var chat = await _chats.StartChatAsync(req);
@@ -37,6 +41,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpPost("direct/{otherUserId:guid}")]
+        [Authorize]
         public async Task<IActionResult> GetOrCreateDirect(Guid otherUserId)
         {
             var me = User.GetUserIdOrThrow();

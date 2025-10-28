@@ -47,14 +47,17 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpGet("by-post/{postId:guid}")]
+        [AllowAnonymous]
         public async Task<ActionResult<IReadOnlyList<MaterialResponse>>> GetByPost([FromRoute] Guid postId) =>
             Ok(await _service.GetByPostAsync(postId));
 
         [HttpGet("by-comment/{commentId:guid}")]
+        [AllowAnonymous]
         public async Task<ActionResult<IReadOnlyList<MaterialResponse>>> GetByComment([FromRoute] Guid commentId) =>
             Ok(await _service.GetByCommentAsync(commentId));
 
         [HttpGet("by-message/{messageId:guid}")]
+        [Authorize]
         public async Task<ActionResult<IReadOnlyList<MaterialResponse>>> GetByMessage([FromRoute] Guid messageId) =>
             Ok(await _service.GetByMessageAsync(messageId));
 
