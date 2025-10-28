@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Utils;
@@ -14,6 +15,7 @@ namespace SmartPathBackend.Controllers
         public NotificationController(INotificationService noti) => _noti = noti;
 
         [HttpGet("mine")]
+        [Authorize]
         public async Task<IActionResult> Mine()
         {
             var uid = User.GetUserIdOrThrow();
@@ -21,6 +23,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpGet("mine/unread-count")]
+        [Authorize]
         public async Task<IActionResult> UnreadCount()
         {
             var uid = User.GetUserIdOrThrow();
@@ -28,10 +31,12 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpPut("{id:guid}/read")]
+        [Authorize]
         public async Task<IActionResult> MarkRead(Guid id) =>
             await _noti.MarkAsReadAsync(id) ? NoContent() : NotFound();
 
         [HttpDelete("{id:guid}")]
+        [Authorize]
         public async Task<IActionResult> Delete(Guid id)
         {
             var uid = User.GetUserIdOrThrow();
@@ -39,6 +44,7 @@ namespace SmartPathBackend.Controllers
         }
         
         [HttpDelete("mine/read")]
+        [Authorize]
         public async Task<IActionResult> DeleteAllReadMine()
         {
             var uid = User.GetUserIdOrThrow();
