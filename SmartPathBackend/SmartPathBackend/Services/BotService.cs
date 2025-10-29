@@ -39,7 +39,7 @@ namespace SmartPathBackend.Services
                 {
                     Id = Guid.NewGuid(),
                     ConversationId = convo.Id,
-                    SenderId = ownerId,             // gắn về chủ sở hữu (người học); phân biệt bằng Role
+                    SenderId = ownerId,             
                     Role = BotMessageRole.System,
                     Content = req.SystemPrompt!.Trim(),
                     CreatedAt = now
