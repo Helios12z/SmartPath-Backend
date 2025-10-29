@@ -72,7 +72,7 @@ namespace SmartPathBackend.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new ApiError("user.create_failed", ex.Message));
+                return Conflict(new { error = ex.Message });
             }
             catch
             {

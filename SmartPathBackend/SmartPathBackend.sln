@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36518.9
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartPathBackend", "SmartPathBackend\SmartPathBackend.csproj", "{E0FE0BA8-FAB1-4978-B60C-D14D8F93AAD7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartPathBackend.Tests", "SmartPathBackend.Tests\SmartPathBackend.Tests.csproj", "{623AB923-026D-4B1B-8F7C-E981ED50C8F0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{E0FE0BA8-FAB1-4978-B60C-D14D8F93AAD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E0FE0BA8-FAB1-4978-B60C-D14D8F93AAD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E0FE0BA8-FAB1-4978-B60C-D14D8F93AAD7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{623AB923-026D-4B1B-8F7C-E981ED50C8F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{623AB923-026D-4B1B-8F7C-E981ED50C8F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{623AB923-026D-4B1B-8F7C-E981ED50C8F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{623AB923-026D-4B1B-8F7C-E981ED50C8F0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
