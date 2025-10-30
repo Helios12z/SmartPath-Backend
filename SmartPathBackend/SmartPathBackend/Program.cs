@@ -196,4 +196,14 @@ app.MapControllers();
 
 app.MapHub<MessageHub>("/hubs/messages");
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<SmartPathDbContext>();
+    var needSeed = !await db.Users.AnyAsync(); 
+    if (needSeed)
+    {
+        await SeedData.SeedAsync(db);
+    }
+}
+
 app.Run();
