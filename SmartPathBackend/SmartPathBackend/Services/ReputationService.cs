@@ -10,12 +10,12 @@ namespace SmartPathBackend.Services
     {
         private readonly SmartPathDbContext _db;
 
-        private const int PostLikePerBand = 10;     
-        private const int CommentLikePerBand = 20;  
-        private const int DislikePerBand = 5;       
+        private const int PostLikePerBand = 5;     
+        private const int CommentLikePerBand = 3;  
+        private const int DislikePerBand = 3;       
 
-        private const int LikeBandReward = 5;       
-        private const int DislikeBandPenalty = 3;   
+        private const int LikeBandReward = 10;       
+        private const int DislikeBandPenalty = 5;   
 
         public ReputationService(SmartPathDbContext db)
         {
