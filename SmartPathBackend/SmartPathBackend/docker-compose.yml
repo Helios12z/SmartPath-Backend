@@ -13,19 +13,12 @@ services:
       - "5433:5432"
     volumes:
       - smartpath_postgres_data:/var/lib/postgresql/data
-    command: [
-      "postgres",
-      "-c", "listen_addresses=*",
-      "-c", "password_encryption=scram-sha-256",
-      "-c", "authentication_timeout=5s",
-      "-c", "unix_socket_directories=/var/run/postgresql",
-      "-c", "hba_file=/var/lib/postgresql/data/pg_hba.conf"
-    ]
+      - ./Data/sql:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d smartpathdb"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
 volumes:
   smartpath_postgres_data:
