@@ -107,8 +107,17 @@ namespace SmartPathBackend.Controllers
                 m.Content
             ));
 
+            var systemPrompt = await _svc.BuildRagSystemPromptAsync(
+                ownerId: uid,
+                conversationId: req.ConversationId,
+                baseSystemPrompt: req.SystemPrompt,
+                userContent: req.UserContent,
+                topK: limit, 
+                ct: ct
+            );
+
             var completion = await _llm.CompleteAsync(
-                req.SystemPrompt,
+                systemPrompt,       
                 forLlm,
                 req.Model,
                 ct

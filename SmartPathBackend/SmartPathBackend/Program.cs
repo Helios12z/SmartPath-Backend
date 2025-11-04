@@ -118,6 +118,20 @@ builder.Services.AddHttpClient("OpenAI", (sp, http) =>
     http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 });
 
+builder.Services.AddHttpClient("LocalLLM", c =>
+{
+    c.BaseAddress = new Uri("http://127.0.0.1:8000/v1");
+    c.Timeout = TimeSpan.FromSeconds(60);
+});
+
+builder.Services.AddHttpClient<IEmbedderService, OpenAICompatEmbedderService>(c =>
+{
+    c.BaseAddress = new Uri(builder.Configuration["Embedding:BaseUrl"]!); // vd: http://127.0.0.1:11434 (Ollama)
+}).AddTypedClient((http, sp) =>
+    new OpenAICompatEmbedderService(http, builder.Configuration["Embedding:Model"] ?? "bge-m3")
+);
+
+builder.Services.AddHttpClient<IEmbedderService, OllamaEmbedderService>();
 
 builder.Services.Configure<ImgBbOptions>(builder.Configuration.GetSection("ImgBB"));
 builder.Services.Configure<R2Options>(builder.Configuration.GetSection("R2"));
@@ -138,6 +152,7 @@ builder.Services.AddScoped<IMaterialRepository, MaterialRepository>();
 builder.Services.AddScoped<IBadgeRepository, BadgeRepository>();
 builder.Services.AddScoped<IBotConversationRepository, BotConversationRepository>();
 builder.Services.AddScoped<IBotMessageRepository, BotMessageRepository>();
+builder.Services.AddScoped<IKnowledgeRepository, KnowledgeRepository>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -160,10 +175,20 @@ builder.Services.AddScoped<IBotService, BotService>();
 builder.Services.AddScoped<ILLMProvider, GeminiLLMProvider>();
 builder.Services.AddScoped<ILLMProvider, OpenAILLMProvider>();
 builder.Services.AddScoped<ILLMService, LLMService>();
+builder.Services.AddScoped<ILLMProvider, LocalLLMProvider>();
 builder.Services.AddScoped<IReputationService, ReputationService>();
+builder.Services.AddScoped<IKnowledgeIngestService, KnowledgeIngestService>();
+builder.Services.AddScoped<IKnowledgeSearchService, KnowledgeSearchService>();
 
 builder.Services.AddDbContext<SmartPathDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    var cs = builder.Configuration.GetConnectionString("DefaultConnection")!;
+    options.UseNpgsql(cs, npgsql =>
+    {
+        npgsql.UseVector();         
+        // npgsql.EnableRetryOnFailure(); 
+    });
+});
 
 builder.Services.AddAutoMapper(cfg => {
 }, typeof(MappingProfile).Assembly);
@@ -196,6 +221,7 @@ app.MapControllers();
 
 app.MapHub<MessageHub>("/hubs/messages");
 
+//data will be seed if no users exist
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SmartPathDbContext>();

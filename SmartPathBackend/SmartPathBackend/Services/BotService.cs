@@ -4,6 +4,7 @@ using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
 using SmartPathBackend.Models.Entities;
 using SmartPathBackend.Models.Enums;
+using System.Text;
 
 namespace SmartPathBackend.Services
 {
@@ -11,11 +12,13 @@ namespace SmartPathBackend.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
+        private readonly IEmbedderService _embedder;
 
-        public BotService(IUnitOfWork uow, IMapper mapper)
+        public BotService(IUnitOfWork uow, IMapper mapper, IEmbedderService embedder)
         {
             _uow = uow;
             _mapper = mapper;
+            _embedder = embedder;
         }
 
         public async Task<BotConversationResponse> CreateConversationAsync(Guid ownerId, BotConversationCreateRequest req)
@@ -154,6 +157,42 @@ namespace SmartPathBackend.Services
             _uow.BotMessages.Remove(msg);
             await _uow.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<string> BuildRagSystemPromptAsync(
+            Guid ownerId,
+            Guid conversationId,
+            string? baseSystemPrompt,
+            string userContent,
+            int topK,
+            CancellationToken ct = default)
+        {
+            var convo = await _uow.BotConversations.GetByIdAsync(conversationId);
+            if (convo == null || convo.OwnerId != ownerId)
+                throw new UnauthorizedAccessException();
+
+            var queryVec = await _embedder.EmbedOneAsync(userContent, ct);
+
+            var k = topK > 0 ? topK : 6;
+            var chunks = await _uow.Knowledges.SearchByEmbeddingAsync(queryVec, k, ct);
+
+            var system = string.IsNullOrWhiteSpace(baseSystemPrompt)
+                ? "Bạn là trợ giảng SmartPath. Trả lời chính xác; nếu không đủ ngữ cảnh, hãy nói rõ bạn không chắc."
+                : baseSystemPrompt.Trim();
+
+            if (chunks.Count == 0) return system; 
+
+            var sb = new StringBuilder();
+            sb.AppendLine(system);
+            sb.AppendLine();
+            sb.AppendLine("NGỮ CẢNH:");
+            for (int i = 0; i < chunks.Count; i++)
+            {
+                sb.AppendLine($"--- [{i + 1}] ---");
+                sb.AppendLine(chunks[i].Content);
+            }
+
+            return sb.ToString();
         }
     }
 }
