@@ -30,10 +30,40 @@ namespace SmartPathBackend.Data
         public DbSet<BotConversation> BotConversations => Set<BotConversation>();
         public DbSet<BotMessage> BotMessages => Set<BotMessage>();
         public DbSet<ReputationCheckpoint> ReputationCheckpoints { get; set; } = default!;
+        public DbSet<KnowledgeDocument> KnowledgeDocuments { get; set; } = default!;
+        public DbSet<KnowledgeChunk> KnowledgeChunks { get; set; } = default!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.HasPostgresExtension("vector");
+
+            modelBuilder.Entity<KnowledgeDocument>(e =>
+            {
+                e.ToTable("knowledge_documents");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Title).HasMaxLength(512);
+                e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+                e.HasMany(x => x.Chunks)
+                 .WithOne(x => x.Document)
+                 .HasForeignKey(x => x.DocumentId)
+                 .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<KnowledgeChunk>(e =>
+            {
+                e.ToTable("knowledge_chunks");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.ChunkIndex).IsRequired();
+                e.Property(x => x.Content).IsRequired();
+
+                e.Property(x => x.Embedding).HasColumnType("vector(1024)");
+
+                e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+                e.HasIndex(x => x.DocumentId);
+            });
 
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Email)
