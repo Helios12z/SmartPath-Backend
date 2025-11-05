@@ -91,5 +91,21 @@ namespace SmartPathBackend.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IReadOnlyList<ActivityDailyDto>>> Activity([FromQuery] int days = 30)
             => Ok(await _users.GetActivityDailyAsync(days));
+
+        [HttpGet("analytics/users-created-range")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UsersCreatedRange([FromQuery] DateTime start, [FromQuery] DateTime end)
+        {
+            var data = await _users.GetUsersCreatedRangeAsync(start, end);
+            return Ok(data ?? Array.Empty<DailyCountDto>());
+        }
+
+        [HttpGet("analytics/activity-range")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ActivityRange([FromQuery] DateTime start, [FromQuery] DateTime end)
+        {
+            var data = await _users.GetActivityDailyRangeAsync(start, end);
+            return Ok(data ?? Array.Empty<ActivityDailyDto>());
+        }
     }
 }

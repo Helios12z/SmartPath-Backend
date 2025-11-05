@@ -19,5 +19,7 @@ namespace SmartPathBackend.Interfaces.Services
         Task<UserAdminSummaryDto?> GetAdminSummaryAsync(Guid id);
         Task<IReadOnlyList<DailyCountDto>> GetUsersCreatedAsync(int days);
         Task<IReadOnlyList<ActivityDailyDto>> GetActivityDailyAsync(int days);
+        Task<IReadOnlyList<DailyCountDto>> GetUsersCreatedRangeAsync(DateTime start, DateTime end);
+        Task<IReadOnlyList<ActivityDailyDto>> GetActivityDailyRangeAsync(DateTime start, DateTime end);
     }
 }
