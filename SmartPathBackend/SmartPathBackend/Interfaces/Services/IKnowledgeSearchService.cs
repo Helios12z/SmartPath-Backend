@@ -1,9 +1,10 @@
 ﻿using SmartPathBackend.Models.DTOs;
+using Pgvector;
 
 namespace SmartPathBackend.Interfaces.Services
 {
     public interface IKnowledgeSearchService
     {
-        Task<IReadOnlyList<KnowledgeSearchHit>> SearchAsync(string query, int k = 5, CancellationToken ct = default);
+        Task<IReadOnlyList<KnowledgeSearchHit>> SearchByVectorAsync(Vector q, int k, CancellationToken ct = default);
     }
 }

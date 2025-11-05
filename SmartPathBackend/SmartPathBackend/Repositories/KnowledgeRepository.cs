@@ -28,15 +28,20 @@ namespace SmartPathBackend.Repositories
 
         public async Task<List<KnowledgeChunk>> SearchByEmbeddingAsync(float[] queryVec, int topK, CancellationToken ct = default)
         {
+            var vec = new Vector(queryVec);
+
             return await _db.KnowledgeChunks
-                .FromSqlRaw("SELECT * FROM knowledge_chunks ORDER BY embedding <=> {0} LIMIT {1}", queryVec, topK)
+                .FromSqlInterpolated($@"
+                                        SELECT *
+                                        FROM ""knowledge_chunks""
+                                        ORDER BY ""Embedding"" <=> {vec}
+                                        LIMIT {topK}")
                 .AsNoTracking()
                 .ToListAsync(ct);
         }
 
         public async Task<IReadOnlyList<KnowledgeSearchHit>> SearchByVectorAsync(Vector q, int k, CancellationToken ct = default)
         {
-            // dùng cosine distance <=> (nhỏ = giống hơn)
             var sql = @"
                         SELECT
                             c.""Id""          AS ""ChunkId"",

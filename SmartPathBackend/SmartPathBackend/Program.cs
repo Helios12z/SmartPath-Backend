@@ -121,7 +121,12 @@ builder.Services.AddHttpClient("OpenAI", (sp, http) =>
 builder.Services.AddHttpClient("LocalLLM", c =>
 {
     c.BaseAddress = new Uri("http://127.0.0.1:8000/v1");
-    c.Timeout = TimeSpan.FromSeconds(60);
+    c.Timeout = TimeSpan.FromMinutes(5);
+    c.DefaultRequestHeaders.ConnectionClose = false;
+}).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+    ConnectTimeout = TimeSpan.FromSeconds(10)
 });
 
 builder.Services.AddHttpClient<IEmbedderService, OpenAICompatEmbedderService>(c =>
