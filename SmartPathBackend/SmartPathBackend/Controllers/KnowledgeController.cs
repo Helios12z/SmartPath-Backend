@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
 using SmartPathBackend.Interfaces.Services;
+using SmartPathBackend.Models.DTOs;
 
 namespace SmartPathBackend.Controllers
 {
@@ -16,6 +18,7 @@ namespace SmartPathBackend.Controllers
             _knowledge = knowledge;
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("ingest/text")]
         public async Task<IActionResult> IngestText([FromBody] TextIngestRequest req, CancellationToken ct)
         {
@@ -28,6 +31,7 @@ namespace SmartPathBackend.Controllers
             return Ok(new { documentId = id });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("ingest/url")]
         public async Task<IActionResult> IngestUrl([FromBody] UrlIngestRequest req, CancellationToken ct)
         {
@@ -38,6 +42,7 @@ namespace SmartPathBackend.Controllers
             return Ok(new { documentId = id });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("ingest/files")]
         [RequestSizeLimit(50_000_000)] 
         public async Task<IActionResult> IngestFiles([FromForm] FileIngestForm form, CancellationToken ct)
@@ -74,6 +79,45 @@ namespace SmartPathBackend.Controllers
             }
 
             return Ok(results);
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpGet("documents")]
+        public async Task<IActionResult> ListDocuments(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? q = null,
+            CancellationToken ct = default)
+        {
+            var result = await _knowledge.GetDocumentsAsync(page, pageSize, q, ct);
+            return Ok(result);
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpGet("documents/{id:guid}")]
+        public async Task<IActionResult> GetDocument(Guid id, CancellationToken ct)
+        {
+            var doc = await _knowledge.GetDocumentAsync(id, ct);
+            if (doc == null) return NotFound();
+            return Ok(doc);
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPut("documents/{id:guid}")]
+        public async Task<IActionResult> UpdateDocument(Guid id, [FromBody] KnowledgeDocumentUpdateRequest req, CancellationToken ct)
+        {
+            var ok = await _knowledge.UpdateDocumentAsync(id, req, ct);
+            if (!ok) return NotFound();
+            return NoContent();
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("documents/{id:guid}")]
+        public async Task<IActionResult> DeleteDocument(Guid id, CancellationToken ct)
+        {
+            var ok = await _knowledge.DeleteDocumentAsync(id, ct);
+            if (!ok) return NotFound();
+            return NoContent();
         }
     }
 

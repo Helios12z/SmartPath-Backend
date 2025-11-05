@@ -67,5 +67,29 @@ namespace SmartPathBackend.Repositories
 
             return hits;
         }
+
+        public IQueryable<KnowledgeDocument> QueryDocuments()
+            => _db.KnowledgeDocuments.AsQueryable();
+
+        public Task<KnowledgeDocument?> FindDocumentAsync(Guid id, CancellationToken ct = default)
+            => _db.KnowledgeDocuments
+                  .Include(d => d.Chunks) 
+                  .FirstOrDefaultAsync(d => d.Id == id, ct);
+
+        public async Task RemoveChunksByDocumentAsync(Guid documentId, CancellationToken ct = default)
+        {
+            await _db.KnowledgeChunks
+                .Where(c => c.DocumentId == documentId)
+                .ExecuteDeleteAsync(ct);
+        }
+
+        public async Task RemoveDocumentAsync(KnowledgeDocument doc, CancellationToken ct = default)
+        {
+            _db.KnowledgeDocuments.Remove(doc);
+            await _db.SaveChangesAsync(ct);
+        }
+
+        public Task SaveAsync(CancellationToken ct = default)
+            => _db.SaveChangesAsync(ct);
     }
 }
