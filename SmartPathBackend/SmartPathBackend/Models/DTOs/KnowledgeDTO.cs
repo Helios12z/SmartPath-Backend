@@ -8,6 +8,6 @@
         public string Content { get; set; } = "";
         public string? Title { get; set; }
         public string? SourceUrl { get; set; }
-        public double Score { get; set; } 
+        public double Score { get; set; }
     }
 }

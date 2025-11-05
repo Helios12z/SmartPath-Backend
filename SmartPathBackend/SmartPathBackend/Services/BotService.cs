@@ -180,7 +180,7 @@ namespace SmartPathBackend.Services
             var chunks = await _uow.Knowledges.SearchByEmbeddingAsync(queryVec, k, ct);
 
             var system = string.IsNullOrWhiteSpace(baseSystemPrompt)
-                ? "Bạn là AI trợ lí SmartPath. Trả lời chính xác; nếu không đủ ngữ cảnh, hãy nói rõ bạn không chắc."
+                ? "Bạn là AI trợ lí SmartPath cho ứng dụng Forum SmartPath phục vụ sinh viên UIT. Trả lời chính xác; nếu không đủ ngữ cảnh, hãy nói rõ bạn không chắc."
                 : baseSystemPrompt.Trim();
 
             if (chunks.Count == 0) return system; 
