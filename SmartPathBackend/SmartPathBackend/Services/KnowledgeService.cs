@@ -1,13 +1,15 @@
-﻿using Pgvector;
+﻿using DocumentFormat.OpenXml.Packaging;
+using HtmlAgilityPack;
+using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.EntityFrameworkCore;
+using Pgvector;
 using SmartPathBackend.Interfaces;
 using SmartPathBackend.Interfaces.Repositories;
 using SmartPathBackend.Interfaces.Services;
+using SmartPathBackend.Models.DTOs;
 using SmartPathBackend.Models.Entities;
 using SmartPathBackend.Utils;
 using System.Net.Mime;
-using DocumentFormat.OpenXml.Packaging;
-using HtmlAgilityPack;
-using Microsoft.AspNetCore.StaticFiles;
 using System.Text;
 
 namespace SmartPathBackend.Services
@@ -263,6 +265,87 @@ namespace SmartPathBackend.Services
             s = System.Text.RegularExpressions.Regex.Replace(s, @"[{}]", " ");
             s = System.Text.RegularExpressions.Regex.Replace(s, "\\s+", " ").Trim();
             return s;
+        }
+
+        public async Task<PagedResult<KnowledgeDocumentDto>> GetDocumentsAsync(int page, int pageSize, string? q, CancellationToken ct = default)
+        {
+            if (page <= 0) page = 1;
+            if (pageSize <= 0 || pageSize > 200) pageSize = 20;
+
+            var query = _uow.Knowledges.QueryDocuments();
+
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var term = q.Trim();
+                query = query.Where(d =>
+                    (d.Title != null && EF.Functions.ILike(d.Title, $"%{term}%")) ||
+                    (d.SourceUrl != null && EF.Functions.ILike(d.SourceUrl, $"%{term}%")));
+            }
+
+            var total = await query.CountAsync(ct);
+
+            var items = await query
+                .OrderByDescending(d => d.CreatedAt)
+                .Select(d => new KnowledgeDocumentDto
+                {
+                    Id = d.Id,
+                    Title = d.Title,
+                    SourceUrl = d.SourceUrl,
+                    Meta = d.Meta,
+                    CreatedAt = d.CreatedAt,
+                    ChunkCount = d.Chunks.Count
+                })
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            return new PagedResult<KnowledgeDocumentDto>
+            {
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = total,
+                Items = items
+            };
+        }
+
+        public async Task<KnowledgeDocumentDto?> GetDocumentAsync(Guid id, CancellationToken ct = default)
+        {
+            var doc = await _uow.Knowledges.FindDocumentAsync(id, ct);
+            if (doc == null) return null;
+
+            return new KnowledgeDocumentDto
+            {
+                Id = doc.Id,
+                Title = doc.Title,
+                SourceUrl = doc.SourceUrl,
+                Meta = doc.Meta,
+                CreatedAt = doc.CreatedAt,
+                ChunkCount = doc.Chunks.Count
+            };
+        }
+
+        public async Task<bool> UpdateDocumentAsync(Guid id, KnowledgeDocumentUpdateRequest req, CancellationToken ct = default)
+        {
+            var doc = await _uow.Knowledges.FindDocumentAsync(id, ct);
+            if (doc == null) return false;
+
+            if (req.Title != null) doc.Title = string.IsNullOrWhiteSpace(req.Title) ? null : req.Title.Trim();
+            if (req.Meta != null) doc.Meta = string.IsNullOrWhiteSpace(req.Meta) ? null : req.Meta.Trim();
+
+            await _uow.Knowledges.SaveAsync(ct);
+            return true;
+        }
+
+        public async Task<bool> DeleteDocumentAsync(Guid id, CancellationToken ct = default)
+        {
+            var doc = await _uow.Knowledges.FindDocumentAsync(id, ct);
+            if (doc == null) return false;
+
+            // already have cascade delete on FK
+            // await _uow.Knowledges.RemoveChunksByDocumentAsync(id, ct);
+
+            await _uow.Knowledges.RemoveDocumentAsync(doc, ct);
+            return true;
         }
     }
 }
