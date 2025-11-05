@@ -185,5 +185,46 @@ namespace SmartPathBackend.Services
             up(users, (r, c) => r.NewUsers = c);
             return dict.Values.OrderBy(x => x.Date).ToList();
         }
+
+        private static List<DailyCountDto> FillMissingDays(DateTime start, DateTime end, IDictionary<DateTime, int> map)
+        {
+            var list = new List<DailyCountDto>();
+            for (var d = start.Date; d <= end.Date; d = d.AddDays(1))
+            {
+                list.Add(new DailyCountDto { Date = d, Count = map.TryGetValue(d, out var c) ? c : 0 });
+            }
+            return list;
+        }
+
+        public async Task<IReadOnlyList<DailyCountDto>> GetUsersCreatedRangeAsync(DateTime start, DateTime end)
+        {
+            var raw = await _unitOfWork.Users.CountCreatedDailyAsync(start.Date);
+            var dict = raw.ToDictionary(x => x.Date.Date, x => x.Count);
+            return FillMissingDays(start, end, dict);
+        }
+
+        public async Task<IReadOnlyList<ActivityDailyDto>> GetActivityDailyRangeAsync(DateTime start, DateTime end)
+        {
+            var p = (await _unitOfWork.Posts.CountCreatedDailyAsync(start.Date)).ToDictionary(x => x.Date.Date, x => x.Count);
+            var c = (await _unitOfWork.Comments.CountCreatedDailyAsync(start.Date)).ToDictionary(x => x.Date.Date, x => x.Count);
+            var r = (await _unitOfWork.Reactions.CountCreatedDailyAsync(start.Date)).ToDictionary(x => x.Date.Date, x => x.Count);
+            var rep = (await _unitOfWork.Reports.CountCreatedDailyAsync(start.Date)).ToDictionary(x => x.Date.Date, x => x.Count);
+            var u = (await _unitOfWork.Users.CountCreatedDailyAsync(start.Date)).ToDictionary(x => x.Date.Date, x => x.Count);
+
+            var list = new List<ActivityDailyDto>();
+            for (var d = start.Date; d <= end.Date; d = d.AddDays(1))
+            {
+                list.Add(new ActivityDailyDto
+                {
+                    Date = d,
+                    Posts = p.TryGetValue(d, out var v1) ? v1 : 0,
+                    Comments = c.TryGetValue(d, out var v2) ? v2 : 0,
+                    Reactions = r.TryGetValue(d, out var v3) ? v3 : 0,
+                    Reports = rep.TryGetValue(d, out var v4) ? v4 : 0,
+                    NewUsers = u.TryGetValue(d, out var v5) ? v5 : 0,
+                });
+            }
+            return list;
+        }
     }
 }
