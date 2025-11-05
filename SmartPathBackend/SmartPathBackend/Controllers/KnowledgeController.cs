@@ -8,10 +8,10 @@ namespace SmartPathBackend.Controllers
     [ApiController]
     public class KnowledgeController : ControllerBase
     {
-        private readonly IKnowledgeIngestService _ingest;
-        private readonly IKnowledgeSearchService _search;
+        private readonly IKnowledgeService _ingest;
+        private readonly IKnowledgeService _search;
 
-        public KnowledgeController(IKnowledgeIngestService ingest, IKnowledgeSearchService search)
+        public KnowledgeController(IKnowledgeService ingest, IKnowledgeService search)
         {
             _ingest = ingest;
             _search = search;
@@ -22,20 +22,6 @@ namespace SmartPathBackend.Controllers
         {
             var id = await _ingest.IngestPdfUrlAsync(url, null, ct);
             return Ok(new { documentId = id });
-        }
-
-        [HttpGet("search")]
-        public async Task<IActionResult> SearchByVector(
-        [FromQuery] float[] v,
-        [FromQuery] int k = 5,
-        CancellationToken ct = default)
-        {
-            if (v is null || v.Length == 0) return BadRequest("Query 'v' (comma-separated floats) is required.");
-            if (k <= 0) return BadRequest("k must be > 0");
-
-            var vec = new Vector(v);
-            var hits = await _search.SearchByVectorAsync(vec, k, ct);
-            return Ok(hits);
         }
     }
 }
