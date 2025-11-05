@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Pgvector;
 using Microsoft.AspNetCore.Mvc;
 using SmartPathBackend.Interfaces.Services;
 
@@ -25,9 +25,16 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpGet("search")]
-        public async Task<IActionResult> Search([FromQuery] string q, [FromQuery] int k = 5, CancellationToken ct = default)
+        public async Task<IActionResult> SearchByVector(
+        [FromQuery] float[] v,
+        [FromQuery] int k = 5,
+        CancellationToken ct = default)
         {
-            var hits = await _search.SearchAsync(q, k, ct);
+            if (v is null || v.Length == 0) return BadRequest("Query 'v' (comma-separated floats) is required.");
+            if (k <= 0) return BadRequest("k must be > 0");
+
+            var vec = new Vector(v);
+            var hits = await _search.SearchByVectorAsync(vec, k, ct);
             return Ok(hits);
         }
     }

@@ -14,6 +14,9 @@ namespace SmartPathBackend.Services
         private readonly IMapper _mapper;
         private readonly IEmbedderService _embedder;
 
+        const int MaxContextCharsTotal = 8000;   
+        const int MaxChunkCharsEach = 1000;
+
         public BotService(IUnitOfWork uow, IMapper mapper, IEmbedderService embedder)
         {
             _uow = uow;
@@ -177,7 +180,7 @@ namespace SmartPathBackend.Services
             var chunks = await _uow.Knowledges.SearchByEmbeddingAsync(queryVec, k, ct);
 
             var system = string.IsNullOrWhiteSpace(baseSystemPrompt)
-                ? "Bạn là trợ giảng SmartPath. Trả lời chính xác; nếu không đủ ngữ cảnh, hãy nói rõ bạn không chắc."
+                ? "Bạn là AI trợ lí SmartPath. Trả lời chính xác; nếu không đủ ngữ cảnh, hãy nói rõ bạn không chắc."
                 : baseSystemPrompt.Trim();
 
             if (chunks.Count == 0) return system; 
@@ -186,10 +189,17 @@ namespace SmartPathBackend.Services
             sb.AppendLine(system);
             sb.AppendLine();
             sb.AppendLine("NGỮ CẢNH:");
+            int used = 0;
             for (int i = 0; i < chunks.Count; i++)
             {
+                var cut = chunks[i].Content;
+                if (cut.Length > MaxChunkCharsEach) cut = cut[..MaxChunkCharsEach];
+
+                if (used + cut.Length > MaxContextCharsTotal) break;
+
                 sb.AppendLine($"--- [{i + 1}] ---");
-                sb.AppendLine(chunks[i].Content);
+                sb.AppendLine(cut);
+                used += cut.Length;
             }
 
             return sb.ToString();
