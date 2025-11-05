@@ -19,6 +19,9 @@ namespace SmartPathBackend.Models.Entities
         public Role Role { get; set; } = Role.Student;
         public int Point { get; set; } = 0;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsBanned { get; set; } = false;
+        public DateTime? BannedUntil { get; set; } 
+        public string? BanReason { get; set; }
 
         // Navigation properties
         public ICollection<Post>? Posts { get; set; }

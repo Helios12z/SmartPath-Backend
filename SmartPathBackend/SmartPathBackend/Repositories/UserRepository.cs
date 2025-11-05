@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SmartPathBackend.Data;
 using SmartPathBackend.Interfaces.Repositories;
+using SmartPathBackend.Models.DTOs;
 using SmartPathBackend.Models.Entities;
 
 namespace SmartPathBackend.Repositories
@@ -32,6 +33,16 @@ namespace SmartPathBackend.Repositories
             return await _dbSet
                 .AsNoTracking()
                 .Where(u => set.Contains(u.Id))
+                .ToListAsync();
+        }
+
+        public async Task<List<DailyCountDto>> CountCreatedDailyAsync(DateTime startInclusive)
+        {
+            return await _dbSet.AsNoTracking()
+                .Where(u => u.CreatedAt >= startInclusive)
+                .GroupBy(u => u.CreatedAt.Date)
+                .Select(g => new DailyCountDto { Date = g.Key, Count = g.Count() })
+                .OrderBy(x => x.Date)
                 .ToListAsync();
         }
     }

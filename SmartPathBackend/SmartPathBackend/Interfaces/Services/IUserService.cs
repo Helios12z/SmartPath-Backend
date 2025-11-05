@@ -12,5 +12,12 @@ namespace SmartPathBackend.Interfaces.Services
         Task<UserResponseDto?> UpdateAsync(Guid id, UserRequestDto request);
         Task<bool> DeleteAsync(Guid id);
         Task<User?> AuthenticateAsync(string emailOrUsername, string password);
+
+        //For admin
+        Task<bool> BanAsync(Guid id, DateTime? until, string? reason, Guid adminId);
+        Task<bool> UnbanAsync(Guid id, Guid adminId);
+        Task<UserAdminSummaryDto?> GetAdminSummaryAsync(Guid id);
+        Task<IReadOnlyList<DailyCountDto>> GetUsersCreatedAsync(int days);
+        Task<IReadOnlyList<ActivityDailyDto>> GetActivityDailyAsync(int days);
     }
 }

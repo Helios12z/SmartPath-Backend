@@ -14,7 +14,10 @@ namespace SmartPathBackend.Models.DTOs
         public int? YearOfStudy { get; set; }
         public string? Bio { get; set; }
         public string? AvatarUrl { get; set; }
-        public Role? Role { get; set; } = Enums.Role.Student;         
+        public Role? Role { get; set; } = Enums.Role.Student;
+        public bool? IsBanned { get; set; }
+        public DateTime? BannedUntil { get; set; }
+        public string? BanReason { get; set; }
     }
 
     public class UserResponseDto
@@ -32,5 +35,8 @@ namespace SmartPathBackend.Models.DTOs
         public Role Role { get; set; } = Role.Student;
         public int Point { get; set; }
         public DateTime CreatedAt { get; set; }
+        public bool IsBanned { get; set; }
+        public DateTime? BannedUntil { get; set; }
+        public string? BanReason { get; set; }
     }
 }

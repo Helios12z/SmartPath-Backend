@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SmartPathBackend.Data;
 using SmartPathBackend.Interfaces.Repositories;
+using SmartPathBackend.Models.DTOs;
 using SmartPathBackend.Models.Entities;
 
 namespace SmartPathBackend.Repositories
@@ -20,5 +21,19 @@ namespace SmartPathBackend.Repositories
             await _dbSet.Include(c => c.Author)
                         .Where(c => c.ParentCommentId == parentCommentId)
                         .ToListAsync();
+
+        public async Task<IEnumerable<DailyCountDto>> CountCreatedDailyAsync(DateTime startInclusive)
+        {
+            return await _dbSet.AsNoTracking()
+                .Where(c => c.CreatedAt >= startInclusive)
+                .GroupBy(c => c.CreatedAt.Date)                
+                .Select(g => new DailyCountDto
+                {
+                    Date = g.Key,                             
+                    Count = g.Count()
+                })
+                .OrderBy(x => x.Date)
+                .ToListAsync();
+        }
     }
 }
