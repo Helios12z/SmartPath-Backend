@@ -178,12 +178,10 @@ builder.Services.AddScoped<IMaterialService, MaterialService>();
 builder.Services.AddScoped<IBadgeService, BadgeService>();
 builder.Services.AddScoped<IBotService, BotService>();
 builder.Services.AddScoped<ILLMProvider, GeminiLLMProvider>();
-builder.Services.AddScoped<ILLMProvider, OpenAILLMProvider>();
 builder.Services.AddScoped<ILLMService, LLMService>();
 builder.Services.AddScoped<ILLMProvider, LocalLLMProvider>();
 builder.Services.AddScoped<IReputationService, ReputationService>();
-builder.Services.AddScoped<IKnowledgeIngestService, KnowledgeIngestService>();
-builder.Services.AddScoped<IKnowledgeSearchService, KnowledgeSearchService>();
+builder.Services.AddScoped<IKnowledgeService, KnowledgeService>();
 
 builder.Services.AddDbContext<SmartPathDbContext>(options =>
 {

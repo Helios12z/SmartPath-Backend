@@ -7,12 +7,12 @@ using SmartPathBackend.Utils;
 
 namespace SmartPathBackend.Services
 {
-    public class KnowledgeIngestService: IKnowledgeIngestService
+    public class KnowledgeService: IKnowledgeService
     {
         private readonly IEmbedderService _embedder;
         private readonly IUnitOfWork _uow;
 
-        public KnowledgeIngestService(IEmbedderService embedder, IKnowledgeRepository repo, IUnitOfWork uow)
+        public KnowledgeService(IEmbedderService embedder, IKnowledgeRepository repo, IUnitOfWork uow)
         {
             _embedder = embedder;
             _uow = uow; 
