@@ -1,4 +1,5 @@
-﻿using SmartPathBackend.Models.Entities;
+﻿using SmartPathBackend.Models.DTOs;
+using SmartPathBackend.Models.Entities;
 
 namespace SmartPathBackend.Interfaces.Repositories
 {
@@ -8,5 +9,6 @@ namespace SmartPathBackend.Interfaces.Repositories
         Task<User?> GetByUsernameAsync(string username);
         Task<IEnumerable<User>> SearchAsync(string keyword);
         Task<IEnumerable<User>> GetByIdsAsync(IEnumerable<Guid> ids);
+        Task<List<DailyCountDto>> CountCreatedDailyAsync(DateTime startInclusive);
     }
 }

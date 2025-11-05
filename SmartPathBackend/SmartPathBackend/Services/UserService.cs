@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using DocumentFormat.OpenXml.Spreadsheet;
 using SmartPathBackend.Interfaces;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
@@ -120,6 +121,69 @@ namespace SmartPathBackend.Services
 
             bool ok = BCrypt.Net.BCrypt.Verify(password, user.Password);
             return ok ? user : null;
+        }
+
+        public async Task<bool> BanAsync(Guid id, DateTime? until, string? reason, Guid adminId)
+        {
+            var u = await _unitOfWork.Users.GetByIdAsync(id);
+            if (u is null) return false;
+            u.IsBanned = true; u.BannedUntil = until; u.BanReason = reason;
+            return true;
+        }
+
+        public async Task<bool> UnbanAsync(Guid id, Guid adminId)
+        {
+            var u = await _unitOfWork.Users.GetByIdAsync(id);
+            if (u is null) return false;
+            u.IsBanned = false; u.BannedUntil = null; u.BanReason = null;
+            return true;
+        }
+
+        public async Task<UserAdminSummaryDto?> GetAdminSummaryAsync(Guid id)
+        {
+            var u = await _unitOfWork.Users.GetByIdAsync(id);
+            if (u is null) return null;
+            var dto = _mapper.Map<UserResponseDto>(u);
+
+            var posts = await _unitOfWork.Posts.CountByAuthorAsync(id);
+            var reportsAgainst = await _unitOfWork.Reports.CountAgainstUserContentAsync(id);
+            var reportsFiled = await _unitOfWork.Reports.CountFiledByAsync(id);
+
+            return new UserAdminSummaryDto
+            {
+                User = dto,
+                Posts = posts,
+                ReportsAgainst = reportsAgainst,
+                ReportsFiled = reportsFiled
+            };
+        }
+
+        public async Task<IReadOnlyList<DailyCountDto>> GetUsersCreatedAsync(int days)
+        {
+            var start = DateTime.UtcNow.Date.AddDays(-days + 1);
+            return await _unitOfWork.Users.CountCreatedDailyAsync(start);
+        }
+
+        public async Task<IReadOnlyList<ActivityDailyDto>> GetActivityDailyAsync(int days)
+        {
+            var start = DateTime.UtcNow.Date.AddDays(-days + 1);
+            var posts = await _unitOfWork.Posts.CountCreatedDailyAsync(start);
+            var reports = await _unitOfWork.Reports.CountCreatedDailyAsync(start);
+            var users = await _unitOfWork.Users.CountCreatedDailyAsync(start);
+
+            var dict = new Dictionary<DateTime, ActivityDailyDto>();
+            void up(List<DailyCountDto> src, Action<ActivityDailyDto, int> set)
+            {
+                foreach (var x in src)
+                {
+                    if (!dict.TryGetValue(x.Date, out var row)) dict[x.Date] = row = new ActivityDailyDto { Date = x.Date };
+                    set(row, x.Count);
+                }
+            }
+            up(posts, (r, c) => r.Posts = c);
+            up(reports, (r, c) => r.Reports = c);
+            up(users, (r, c) => r.NewUsers = c);
+            return dict.Values.OrderBy(x => x.Date).ToList();
         }
     }
 }
