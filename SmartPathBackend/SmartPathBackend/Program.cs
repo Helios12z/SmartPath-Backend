@@ -50,7 +50,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
                 if (!string.IsNullOrEmpty(accessToken) &&
-                    path.StartsWithSegments("/hubs/messages"))
+                    path.StartsWithSegments("/hubs/message"))
                 {
                     context.Token = accessToken;
                 }
@@ -74,7 +74,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => { o.PayloadSerializerOptions.PropertyNamingPolicy = null; })
-    .AddHubOptions<SmartPathBackend.Utils.MessageHub>(o =>   
+    .AddHubOptions<MessageHub>(o =>   
      {
          o.EnableDetailedErrors = true;                       
          o.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
@@ -105,16 +105,6 @@ builder.Services.AddHttpClient("Gemini", (sp, http) =>
     http.BaseAddress = new Uri(opt.BaseUrl ?? "https://generativelanguage.googleapis.com");
     if (!string.IsNullOrWhiteSpace(opt.ApiKey))
         http.DefaultRequestHeaders.Add("x-goog-api-key", opt.ApiKey);
-    http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-});
-
-builder.Services.AddHttpClient("OpenAI", (sp, http) =>
-{
-    var opt = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<LLMOptions>>().Value;
-    http.BaseAddress = new Uri(opt.BaseUrl ?? "https://api.openai.com/v1");
-    if (!string.IsNullOrWhiteSpace(opt.ApiKey))
-        http.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", opt.ApiKey);
     http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 });
 
@@ -222,7 +212,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapHub<MessageHub>("/hubs/messages");
+app.MapHub<MessageHub>("/hubs/message");
 
 //data will be seed if no users exist
 using (var scope = app.Services.CreateScope())

@@ -11,7 +11,6 @@
     public class ChatResponseDto
     {
         public Guid Id { get; set; }
-        public string? Name { get; set; }
 
         public Guid Member1Id { get; set; }
         public Guid Member2Id { get; set; }
