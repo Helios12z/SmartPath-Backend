@@ -46,14 +46,6 @@ namespace SmartPathBackend.Data
             var friendships = BuildFriendships();
             await UpsertByIdAsync(db.Friendships, friendships, ct);
 
-            // ===== 9) CHATS (10) =====
-            var chats = BuildChats();
-            await UpsertByIdAsync(db.Chats, chats, ct);
-
-            // ===== 10) MESSAGES (10) =====
-            var messages = BuildMessages();
-            await UpsertMessagesAsync(db, messages, ct);
-
             // ===== 13) REPORTS (10) =====
             var reports = BuildReports();
             await UpsertByIdAsync(db.Reports, reports, ct);
@@ -359,39 +351,6 @@ namespace SmartPathBackend.Data
             new Friendship{ Id=Guid.NewGuid(), FollowerId=Guid.Parse("77777777-7777-7777-7777-777777777777"), FollowedUserId=Guid.Parse("88888888-8888-8888-8888-888888888888"), CreatedAt=T0 },
             new Friendship{ Id=Guid.NewGuid(), FollowerId=Guid.Parse("88888888-8888-8888-8888-888888888888"), FollowedUserId=Guid.Parse("99999999-9999-9999-9999-999999999999"), CreatedAt=T0 },
             new Friendship{ Id=Guid.NewGuid(), FollowerId=Guid.Parse("99999999-9999-9999-9999-999999999999"), FollowedUserId=Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), CreatedAt=T0 },
-        };
-
-        private static List<Chat> BuildChats()
-        {
-            // Giữ đúng 10 GUID như SQL
-            string[] ids =
-            {
-                "c0c0c0c0-0000-0000-0000-000000000001",
-                "c0c0c0c0-0000-0000-0000-000000000002",
-                "c0c0c0c0-0000-0000-0000-000000000003",
-                "c0c0c0c0-0000-0000-0000-000000000004",
-                "c0c0c0c0-0000-0000-0000-000000000005",
-                "c0c0c0c0-0000-0000-0000-000000000006",
-                "c0c0c0c0-0000-0000-0000-000000000007",
-                "c0c0c0c0-0000-0000-0000-000000000008",
-                "c0c0c0c0-0000-0000-0000-000000000009",
-                "c0c0c0c0-0000-0000-0000-000000000010",
-            };
-            return ids.Select(s => new Chat { Id = Guid.Parse(s) }).ToList();
-        }
-
-        private static List<Message> BuildMessages() => new()
-        {
-            new Message{ Id=Guid.NewGuid(), ChatId=Guid.Parse("c0c0c0c0-0000-0000-0000-000000000001"), SenderId=Guid.Parse("11111111-1111-1111-1111-111111111111"), Content="Hi Bob!", CreatedAt=T0 },
-            new Message{ Id=Guid.NewGuid(), ChatId=Guid.Parse("c0c0c0c0-0000-0000-0000-000000000001"), SenderId=Guid.Parse("22222222-2222-2222-2222-222222222222"), Content="Hi Alice!", CreatedAt=T0 },
-            new Message{ Id=Guid.NewGuid(), ChatId=Guid.Parse("c0c0c0c0-0000-0000-0000-000000000002"), SenderId=Guid.Parse("33333333-3333-3333-3333-333333333333"), Content="Anyone up for study group?", CreatedAt=T0 },
-            new Message{ Id=Guid.NewGuid(), ChatId=Guid.Parse("c0c0c0c0-0000-0000-0000-000000000003"), SenderId=Guid.Parse("44444444-4444-4444-4444-444444444444"), Content="DB tips welcome", CreatedAt=T0 },
-            new Message{ Id=Guid.NewGuid(), ChatId=Guid.Parse("c0c0c0c0-0000-0000-0000-000000000004"), SenderId=Guid.Parse("55555555-5555-5555-5555-555555555555"), Content="Trunk-based works well", CreatedAt=T0 },
-            new Message{ Id=Guid.NewGuid(), ChatId=Guid.Parse("c0c0c0c0-0000-0000-0000-000000000005"), SenderId=Guid.Parse("66666666-6666-6666-6666-666666666666"), Content="C pointers are tricky", CreatedAt=T0 },
-            new Message{ Id=Guid.NewGuid(), ChatId=Guid.Parse("c0c0c0c0-0000-0000-0000-000000000006"), SenderId=Guid.Parse("77777777-7777-7777-7777-777777777777"), Content="Max flow solved it", CreatedAt=T0 },
-            new Message{ Id=Guid.NewGuid(), ChatId=Guid.Parse("c0c0c0c0-0000-0000-0000-000000000007"), SenderId=Guid.Parse("88888888-8888-8888-8888-888888888888"), Content="Shadcn is neat", CreatedAt=T0 },
-            new Message{ Id=Guid.NewGuid(), ChatId=Guid.Parse("c0c0c0c0-0000-0000-0000-000000000008"), SenderId=Guid.Parse("99999999-9999-9999-9999-999999999999"), Content="JWT rotation is a must", CreatedAt=T0 },
-            new Message{ Id=Guid.NewGuid(), ChatId=Guid.Parse("c0c0c0c0-0000-0000-0000-000000000009"), SenderId=Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), Content="NUnit vs xUnit thoughts", CreatedAt=T0 },
         };
 
         private static List<Report> BuildReports() => new()

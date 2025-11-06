@@ -66,7 +66,7 @@ namespace SmartPathBackend.Services
                     {
                         Id = u.Id,
                         Username = u.Username,
-                        FullName = u.FullName,
+                        FullName = u.FullName??"Unknown",
                         AvatarUrl = u.AvatarUrl
                     };
                 }
@@ -121,7 +121,7 @@ namespace SmartPathBackend.Services
                 return dto;
             }
 
-            var chat = new Chat { Id = Guid.NewGuid(), Name = null, Member1Id = a, Member2Id = b, CreatedAt = DateTime.UtcNow };
+            var chat = new Chat { Id = Guid.NewGuid(), Member1Id = a, Member2Id = b, CreatedAt = DateTime.UtcNow };
             await _unitOfWork.Chats.AddAsync(chat);
             await _unitOfWork.SaveChangesAsync();
 
