@@ -11,6 +11,7 @@ using SmartPathBackend.Models.Entities;
 using SmartPathBackend.Utils;
 using System.Net.Mime;
 using System.Text;
+using TikaOnDotNet.TextExtraction;
 
 namespace SmartPathBackend.Services
 {
@@ -87,6 +88,26 @@ namespace SmartPathBackend.Services
 
         public async Task<Guid> IngestFromUrlAsync(string url, string? title = null, CancellationToken ct = default)
         {
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // maxDepth = 1: url gốc + các link con trực tiếp
+            return await IngestFromUrlInternalAsync(url, title, visited, depth: 0, maxDepth: 1, ct);
+        }
+
+        private async Task<Guid> IngestFromUrlInternalAsync(
+            string url,
+            string? title,
+            HashSet<string> visited,
+            int depth,
+            int maxDepth,
+            CancellationToken ct)
+        {
+            // Nếu đã ingest URL này rồi thì bỏ qua
+            if (!visited.Add(url))
+            {
+                return Guid.Empty;
+            }
+
             using var http = new HttpClient();
 
             using var res = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -102,12 +123,62 @@ namespace SmartPathBackend.Services
 
             var bytes = await res.Content.ReadAsByteArrayAsync(ct);
             title ??= System.IO.Path.GetFileNameWithoutExtension(fileName);
+            var ext = System.IO.Path.GetExtension(fileName)?.ToLowerInvariant();
 
-            string text = await ExtractTextAsync(new MemoryStream(bytes), contentType, fileName, ct);
-            if (string.IsNullOrWhiteSpace(text))
-                throw new InvalidOperationException("Không trích xuất được văn bản từ nội dung URL.");
+            // Nếu là HTML: tự xử lý, vừa ingest text vừa crawl link con
+            if (IsHtml(contentType, ext))
+            {
+                var html = Encoding.UTF8.GetString(bytes);
+                var text = HtmlToPlainText(html);
+                if (string.IsNullOrWhiteSpace(text))
+                    throw new InvalidOperationException("Không trích xuất được văn bản từ nội dung URL.");
 
-            return await IngestRawAsync(title, url, text, ct);
+                // 1) Ingest document cho TRANG HIỆN TẠI
+                var docId = await IngestRawAsync(title, url, text, ct);
+
+                // 2) Nếu còn depth, crawl các link con
+                if (depth < maxDepth)
+                {
+                    var childLinks = ExtractChildLinks(html, url);
+
+                    foreach (var childUrl in childLinks)
+                    {
+                        // Tránh ingest trùng document theo SourceUrl
+                        var existed = await _uow.Knowledges
+                            .QueryDocuments()
+                            .AnyAsync(d => d.SourceUrl == childUrl, ct);
+
+                        if (existed) continue;
+
+                        try
+                        {
+                            await IngestFromUrlInternalAsync(
+                                childUrl,
+                                title: null,
+                                visited: visited,
+                                depth: depth + 1,
+                                maxDepth: maxDepth,
+                                ct: ct
+                            );
+                        }
+                        catch
+                        {
+                            // TODO: log nếu cần, nhưng không để 1 link hỏng phá toàn batch
+                        }
+                    }
+                }
+
+                return docId;
+            }
+            else
+            {
+                // Các loại file khác: dùng ExtractTextAsync như cũ
+                string text = await ExtractTextAsync(new MemoryStream(bytes), contentType, fileName, ct);
+                if (string.IsNullOrWhiteSpace(text))
+                    throw new InvalidOperationException("Không trích xuất được văn bản từ nội dung URL.");
+
+                return await IngestRawAsync(title, url, text, ct);
+            }
         }
 
         public async Task<Guid> IngestFileAsync(
@@ -161,11 +232,14 @@ namespace SmartPathBackend.Services
                 return body?.InnerText ?? string.Empty;
             }
 
-            // 3) Legacy .doc (nếu cần, gợi ý dùng TikaOnDotNet hoặc Aspose; ở đây coi như unsupported)
+            // 3) .doc 
             if (ext == ".doc" || Is(contentType, "application/msword"))
             {
-                // TODO: tích hợp thêm thư viện xử lý .doc nếu cần
-                return string.Empty;
+                using var ms = await ToMemoryStream(stream, ct);
+                var extractor = new TextExtractor();
+                var bytes = ms.ToArray();
+                var result = extractor.Extract(bytes);
+                return result?.Text ?? string.Empty;
             }
 
             // 4) HTML
@@ -256,6 +330,66 @@ namespace SmartPathBackend.Services
             s = System.Text.RegularExpressions.Regex.Replace(s, "\\s+", " ").Trim();
 
             return s;
+        }
+
+        private static bool IsHtml(string? contentType, string? ext)
+        {
+            return Is(contentType, MediaTypeNames.Text.Html)
+                   || ext is ".html" or ".htm";
+        }
+
+        private static List<string> ExtractChildLinks(string html, string baseUrl)
+        {
+            var result = new List<string>();
+
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            var nodes = doc.DocumentNode.SelectNodes("//a[@href]");
+            if (nodes == null || nodes.Count == 0)
+                return result;
+
+            var baseUri = new Uri(baseUrl);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var node in nodes)
+            {
+                var href = node.GetAttributeValue("href", "").Trim();
+                if (string.IsNullOrEmpty(href))
+                    continue;
+
+                // bỏ qua link anchor / javascript / mailto
+                if (href.StartsWith("#") ||
+                    href.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase) ||
+                    href.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                // build absolute url
+                Uri abs;
+                if (!Uri.TryCreate(href, UriKind.Absolute, out abs))
+                {
+                    abs = new Uri(baseUri, href);
+                }
+
+                // chỉ crawl cùng domain (tránh bay ra ngoài UIT, v.v.)
+                if (!string.Equals(abs.Host, baseUri.Host, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var childUrl = abs.ToString();
+                if (!seen.Add(childUrl))
+                    continue;
+
+                // lọc loại file cần crawl: pdf, doc, docx, html
+                var childExt = System.IO.Path.GetExtension(abs.LocalPath)?.ToLowerInvariant();
+                if (childExt is not (".pdf" or ".doc" or ".docx" or ".html" or ".htm"))
+                    continue;
+
+                result.Add(childUrl);
+            }
+
+            return result;
         }
 
         private static string NaiveStripRtf(string rtf)
