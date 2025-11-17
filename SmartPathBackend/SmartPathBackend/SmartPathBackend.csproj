@@ -26,6 +26,8 @@
     <PackageReference Include="PdfPig" Version="0.1.12-alpha-20251104-181fa" />
     <PackageReference Include="Pgvector" Version="0.3.2" />
     <PackageReference Include="Pgvector.EntityFrameworkCore" Version="0.2.2" />
+    <PackageReference Include="TikaOnDotNet" Version="1.17.1" />
+    <PackageReference Include="TikaOnDotnet.TextExtractor" Version="1.17.1" />
   </ItemGroup>
 
 </Project>
