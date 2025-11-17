@@ -11,5 +11,6 @@ namespace SmartPathBackend.Interfaces.Services
         Task<KnowledgeDocumentDto?> GetDocumentAsync(Guid id, CancellationToken ct = default);
         Task<bool> UpdateDocumentAsync(Guid id, KnowledgeDocumentUpdateRequest req, CancellationToken ct = default);
         Task<bool> DeleteDocumentAsync(Guid id, CancellationToken ct = default);
+        Task<KnowledgePreviewResultDTO> PreviewByMetadataAsync(string? title, string? sourceUrl, CancellationToken ct = default);
     }
 }

@@ -119,6 +119,68 @@ namespace SmartPathBackend.Controllers
             if (!ok) return NotFound();
             return NoContent();
         }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("preview/text")]
+        public async Task<IActionResult> PreviewText([FromBody] TextIngestRequest req, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(req.Title))
+                return BadRequest("Title is required.");
+
+            var preview = await _knowledge.PreviewByMetadataAsync(req.Title, req.SourceUrl, ct);
+            return Ok(preview);
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("preview/url")]
+        public async Task<IActionResult> PreviewUrl([FromBody] UrlIngestRequest req, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(req.Url))
+                return BadRequest("Url is required.");
+
+            // Dùng title nếu có, nếu không thì guess theo URL
+            string? title = req.Title;
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                try
+                {
+                    var uri = new Uri(req.Url);
+                    title = Path.GetFileNameWithoutExtension(uri.LocalPath);
+                }
+                catch
+                {
+                    title = req.Url;
+                }
+            }
+
+            var preview = await _knowledge.PreviewByMetadataAsync(title, req.Url, ct);
+            return Ok(preview);
+        }
+
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("preview/files")]
+        [RequestSizeLimit(50_000_000)]
+        public async Task<IActionResult> PreviewFiles([FromForm] FileIngestForm form, CancellationToken ct)
+        {
+            if (form.Files is null || form.Files.Count == 0)
+                return BadRequest("No files uploaded.");
+
+            var results = new List<KnowledgePreviewResultDTO>();
+
+            foreach (var file in form.Files)
+            {
+                if (file.Length == 0) continue;
+
+                var fileName = file.FileName ?? "uploaded";
+                var title = form.Title ?? Path.GetFileNameWithoutExtension(fileName);
+                var preview = await _knowledge.PreviewByMetadataAsync(title, form.SourceUrl, ct);
+                results.Add(preview);
+            }
+
+            return Ok(results);
+        }
+
     }
 
     public record TextIngestRequest(string Title, string? SourceUrl, string Text);
