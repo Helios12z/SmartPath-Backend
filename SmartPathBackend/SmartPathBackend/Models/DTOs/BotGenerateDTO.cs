@@ -33,6 +33,8 @@
         public int? RetrievedContextCount { get; set; }
 
         public IEnumerable<RetrievedContextPreview>? Contexts { get; set; }
+
+        public IEnumerable<KnowledgeSourcePreview>? Sources { get; set; }
     }
 
     public class RetrievedContextPreview
@@ -41,5 +43,12 @@
         public Guid DocumentId { get; set; }
         public int ChunkIndex { get; set; }
         public string Snippet { get; set; } = "";     
+    }
+
+    public class KnowledgeSourcePreview
+    {
+        public Guid DocumentId { get; set; }
+        public string? Title { get; set; }
+        public string? SourceUrl { get; set; }
     }
 }

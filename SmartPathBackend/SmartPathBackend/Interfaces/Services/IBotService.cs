@@ -15,12 +15,15 @@ namespace SmartPathBackend.Interfaces.Services
         Task<IReadOnlyList<BotMessageResponse>> GetMessagesAsync(Guid ownerId, Guid conversationId, int limit = 50, Guid? beforeMessageId = null);
         Task<bool> DeleteMessageAsync(Guid ownerId, Guid messageId);
 
-        Task<string> BuildRagSystemPromptAsync(
-           Guid ownerId,
-           Guid conversationId,
-           string? baseSystemPrompt,
-           string userContent,
-           int topK,
-           CancellationToken ct = default);
+        Task<(string SystemPrompt,
+              IReadOnlyList<RetrievedContextPreview> Contexts,
+              IReadOnlyList<KnowledgeSourcePreview> Sources)>
+        BuildRagSystemPromptAsync(
+            Guid ownerId,
+            Guid conversationId,
+            string? baseSystemPrompt,
+            string userContent,
+            int topK,
+            CancellationToken ct = default);
     }
 }
