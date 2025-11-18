@@ -4,6 +4,7 @@ using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
 using SmartPathBackend.Models.Enums;
 using System.Security.Claims;
+using System.Diagnostics;
 
 namespace SmartPathBackend.Controllers
 {
@@ -91,6 +92,7 @@ namespace SmartPathBackend.Controllers
         {
             var uid = GetUserId();
 
+            // 1. Lưu message của user
             var userMsg = await _svc.AppendMessageAsync(uid, new BotMessageRequest
             {
                 ConversationId = req.ConversationId,
@@ -98,6 +100,7 @@ namespace SmartPathBackend.Controllers
                 Content = req.UserContent
             });
 
+            // 2. Lấy history để gửi lên LLM
             var limit = req.ContextLimit ?? 20;
             var ctx = await _svc.GetMessagesAsync(uid, req.ConversationId, limit);
 
@@ -107,33 +110,56 @@ namespace SmartPathBackend.Controllers
                 m.Content
             ));
 
-            var systemPrompt = await _svc.BuildRagSystemPromptAsync(
+            var (systemPrompt, contexts, sources) = await _svc.BuildRagSystemPromptAsync(
                 ownerId: uid,
                 conversationId: req.ConversationId,
                 baseSystemPrompt: req.SystemPrompt,
                 userContent: req.UserContent,
-                topK: limit, 
+                topK: limit,
                 ct: ct
             );
 
+            // 4. Gọi LLM + đo latency
+            var sw = Stopwatch.StartNew();
+
             var completion = await _llm.CompleteAsync(
-                systemPrompt,       
+                systemPrompt,
                 forLlm,
                 req.Model,
                 ct
             );
 
+            sw.Stop();
+
+            // 5. Lưu message của assistant (có thể set LatencyMs luôn)
             var assistantMsg = await _svc.AppendMessageAsync(uid, new BotMessageRequest
             {
                 ConversationId = req.ConversationId,
                 Role = BotMessageRole.Assistant,
-                Content = completion
+                Content = completion,
+                // Nếu sau này có token usage thật thì bổ sung thêm vào đây
+                LatencyMs = (int)sw.ElapsedMilliseconds
             });
+
+            // 6. Build meta trả về cho FE (để FE show “Nguồn tham khảo” + link)
+            var meta = new BotGenerateMeta
+            {
+                UsedModel = string.IsNullOrWhiteSpace(req.Model) ? null : req.Model,
+                // Hiện tại chưa lấy được token từ LLM => để null / 0 tùy bạn
+                PromptTokens = null,
+                CompletionTokens = null,
+                TotalTokens = null,
+                LatencyMs = (int)sw.ElapsedMilliseconds,
+                RetrievedContextCount = contexts?.Count ?? 0,
+                Contexts = contexts,
+                Sources = sources
+            };
 
             return Ok(new BotGenerateResponse
             {
                 UserMessage = userMsg,
-                AssistantMessage = assistantMsg
+                AssistantMessage = assistantMsg,
+                Meta = meta
             });
         }
     }
