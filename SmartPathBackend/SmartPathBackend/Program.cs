@@ -65,7 +65,7 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy
-                .WithOrigins("http://localhost:3000", "https://localhost:3000")
+                .WithOrigins("http://localhost:3000", "https://localhost:3000", "https://smartpath.id.vn")
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
