@@ -24,7 +24,7 @@ namespace SmartPathBackend.Services
             string? modelOverride = null,
             CancellationToken ct = default)
         {
-            var model = modelOverride ?? _opt.Model ?? "gemini-1.5-flash";
+            var model = modelOverride ?? _opt.Model ?? "gemini-2.5-flash";
 
             var contents = new List<object>();
             foreach (var (role, content) in messages)
