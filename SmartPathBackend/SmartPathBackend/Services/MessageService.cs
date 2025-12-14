@@ -12,7 +12,7 @@ namespace SmartPathBackend.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly IHubContext<MessageHub> _hub;   
+        private readonly IHubContext<MessageHub> _hub;
 
         public MessageService(IUnitOfWork unitOfWork, IMapper mapper, IHubContext<MessageHub> hub)
         {
@@ -23,6 +23,12 @@ namespace SmartPathBackend.Services
 
         public async Task<MessageResponseDto> SendMessageAsync(Guid senderId, MessageRequestDto request)
         {
+            // Get chat to verify user is part of it
+            var chat = await _unitOfWork.Chats.GetByIdAsync(request.ChatId);
+            if (chat == null || (chat.Member1Id != senderId && chat.Member2Id != senderId))
+            {
+                throw new UnauthorizedAccessException("User is not a member of this chat");
+            }
 
             var msg = new Message
             {
@@ -42,7 +48,7 @@ namespace SmartPathBackend.Services
             var dto = new MessageResponseDto
             {
                 Id = msg.Id,
-                ChatId = msg.ChatId,                         
+                ChatId = msg.ChatId,
                 Content = msg.Content,
                 SenderId = msg.SenderId,
                 SenderUsername = sender?.Username ?? "unknown",
@@ -50,8 +56,20 @@ namespace SmartPathBackend.Services
                 CreatedAt = msg.CreatedAt
             };
 
+            // Send to chat group for real-time updates
             await _hub.Clients.Group($"chat-{dto.ChatId}")
                 .SendAsync("NewMessage", dto);
+
+            // Also send notification to the recipient's user group
+            var recipientId = chat.Member1Id == senderId ? chat.Member2Id : chat.Member1Id;
+            await _hub.Clients.Group($"user-{recipientId}")
+                .SendAsync("NewMessageNotification", new {
+                    ChatId = chat.Id,
+                    MessageId = msg.Id,
+                    SenderUsername = sender?.Username ?? "unknown",
+                    Content = msg.Content.Length > 50 ? msg.Content.Substring(0, 50) + "..." : msg.Content,
+                    CreatedAt = msg.CreatedAt
+                });
 
             return dto;
         }
@@ -84,17 +102,75 @@ namespace SmartPathBackend.Services
             var msg = await _unitOfWork.Messages.GetByIdAsync(messageId);
             if (msg == null) return false;
 
+            // Don't allow sender to mark their own message as read
+            if (msg.SenderId == readerId) return false;
+
             if (!msg.IsRead)
             {
                 msg.IsRead = true;
                 _unitOfWork.Messages.Update(msg);
                 await _unitOfWork.SaveChangesAsync();
 
-                var ev = new MessageReadEvent(messageId, msg.ChatId, readerId);
+                // Send read receipt to sender
+                await _hub.Clients.Group($"user-{msg.SenderId}")
+                    .SendAsync("MessageRead", new {
+                        MessageId = msg.Id,
+                        ChatId = msg.ChatId,
+                        ReaderId = readerId,
+                        ReadAt = DateTime.UtcNow
+                    });
+
+                // Also send to chat group for UI updates
                 await _hub.Clients.Group($"chat-{msg.ChatId}")
-                    .SendAsync("MessageRead", ev);
+                    .SendAsync("MessageStatusUpdated", new {
+                        MessageId = msg.Id,
+                        IsRead = true,
+                        ReaderId = readerId
+                    });
             }
             return true;
+        }
+
+        public async Task MarkAllAsReadAsync(Guid readerId, Guid chatId)
+        {
+            // Get unread messages for this user in this chat
+            var messages = await _unitOfWork.Messages.GetUnreadMessagesAsync(readerId, chatId);
+
+            if (!messages.Any()) return;
+
+            // Track senders to notify them
+            var sendersToNotify = new HashSet<Guid>();
+
+            foreach (var message in messages)
+            {
+                if (!message.IsRead && message.SenderId != readerId)
+                {
+                    message.IsRead = true;
+                    _unitOfWork.Messages.Update(message);
+                    sendersToNotify.Add(message.SenderId);
+
+                    // Send update to chat group
+                    await _hub.Clients.Group($"chat-{chatId}")
+                        .SendAsync("MessageStatusUpdated", new {
+                            MessageId = message.Id,
+                            IsRead = true,
+                            ReaderId = readerId
+                        });
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+
+            // Notify all senders that their messages were read
+            foreach (var senderId in sendersToNotify)
+            {
+                await _hub.Clients.Group($"user-{senderId}")
+                    .SendAsync("MessagesReadInChat", new {
+                        ChatId = chatId,
+                        ReaderId = readerId,
+                        ReadAt = DateTime.UtcNow
+                    });
+            }
         }
     }
 }

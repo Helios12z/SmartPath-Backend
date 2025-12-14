@@ -7,5 +7,6 @@ namespace SmartPathBackend.Interfaces.Services
         Task<MessageResponseDto> SendMessageAsync(Guid senderId, MessageRequestDto request);
         Task<IEnumerable<MessageResponseDto>> GetMessagesByChatAsync(Guid chatId);
         Task<bool> MarkAsReadAsync(Guid readerId, Guid messageId);
+        Task MarkAllAsReadAsync(Guid readerId, Guid chatId);
     }
 }

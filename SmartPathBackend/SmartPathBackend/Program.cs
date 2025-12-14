@@ -119,13 +119,6 @@ builder.Services.AddHttpClient("LocalLLM", c =>
     ConnectTimeout = TimeSpan.FromSeconds(10)
 });
 
-builder.Services.AddHttpClient<IEmbedderService, OpenAICompatEmbedderService>(c =>
-{
-    c.BaseAddress = new Uri(builder.Configuration["Embedding:BaseUrl"]!); // vd: http://127.0.0.1:11434 (Ollama)
-}).AddTypedClient((http, sp) =>
-    new OpenAICompatEmbedderService(http, builder.Configuration["Embedding:Model"] ?? "bge-m3")
-);
-
 builder.Services.AddHttpClient<IEmbedderService, OllamaEmbedderService>();
 
 builder.Services.Configure<ImgBbOptions>(builder.Configuration.GetSection("ImgBB"));

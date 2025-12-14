@@ -6,5 +6,6 @@ namespace SmartPathBackend.Interfaces.Repositories
     {
         Task<IEnumerable<Message>> GetMessagesByChatAsync(Guid chatId);
         Task<IEnumerable<Message>> GetUnreadMessagesAsync(Guid userId);
+        Task<IEnumerable<Message>> GetUnreadMessagesAsync(Guid userId, Guid chatId);
     }
 }
