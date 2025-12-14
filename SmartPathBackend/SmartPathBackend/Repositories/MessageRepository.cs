@@ -25,5 +25,13 @@ namespace SmartPathBackend.Repositories
                         (m.Chat.Member2Id == userId && m.SenderId != userId)
                     ))
                 .ToListAsync();
+
+        public async Task<IEnumerable<Message>> GetUnreadMessagesAsync(Guid userId, Guid chatId)
+            => await _dbSet
+                .Where(m =>
+                    m.ChatId == chatId &&
+                    !m.IsRead &&
+                    m.SenderId != userId)
+                .ToListAsync();
     }
 }

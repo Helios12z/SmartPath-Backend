@@ -31,5 +31,13 @@ namespace SmartPathBackend.Controllers
             var readerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             return await _messages.MarkAsReadAsync(readerId, messageId) ? NoContent() : NotFound();
         }
+
+        [HttpPut("chat/{chatId:guid}/read-all")]
+        public async Task<IActionResult> MarkAllRead(Guid chatId)
+        {
+            var readerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _messages.MarkAllAsReadAsync(readerId, chatId);
+            return NoContent();
+        }
     }
 }
