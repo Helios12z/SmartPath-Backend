@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartPathBackend.Models.Entities;
 using System.Collections.Generic;
 using System.Reflection.Emit;
@@ -32,6 +33,12 @@ namespace SmartPathBackend.Data
         public DbSet<ReputationCheckpoint> ReputationCheckpoints { get; set; } = default!;
         public DbSet<KnowledgeDocument> KnowledgeDocuments { get; set; } = default!;
         public DbSet<KnowledgeChunk> KnowledgeChunks { get; set; } = default!;
+        public DbSet<MaterialCategory> MaterialCategories => Set<MaterialCategory>();
+        public DbSet<StudyMaterial> StudyMaterials => Set<StudyMaterial>();
+        public DbSet<StudyMaterialReview> StudyMaterialReviews => Set<StudyMaterialReview>();
+        public DbSet<PostSearchIndex> PostSearchIndices => Set<PostSearchIndex>();
+        public DbSet<StudyMaterialSearchIndex> StudyMaterialSearchIndices => Set<StudyMaterialSearchIndex>();
+        public DbSet<SearchQueryLog> SearchQueryLogs => Set<SearchQueryLog>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -216,6 +223,60 @@ namespace SmartPathBackend.Data
                 e.HasIndex(x => new { x.ContentType, x.ContentId }).IsUnique();
                 e.Property(x => x.LikeBandsApplied).HasDefaultValue(0);
                 e.Property(x => x.DislikeBandsApplied).HasDefaultValue(0);
+            });
+
+            modelBuilder.Entity<MaterialCategory>()
+                .HasIndex(x => x.Slug).IsUnique();
+
+            modelBuilder.Entity<MaterialCategory>()
+                .HasOne(x => x.Parent)
+                .WithMany(x => x.Children)
+                .HasForeignKey(x => x.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<StudyMaterial>(b =>
+            {
+                b.HasIndex(x => new { x.CategoryId, x.Status, x.CreatedAt });
+                b.ToTable(t => t.HasCheckConstraint(
+                    "ck_studymaterials_one_source",
+                    "((\"SourceType\" = 1 AND \"FileUrl\" IS NOT NULL AND \"SourceUrl\" IS NULL) OR " +
+                    "(\"SourceType\" = 2 AND \"SourceUrl\" IS NOT NULL AND \"FileUrl\" IS NULL))"
+                ));
+            });
+
+            // Search Index configurations
+            modelBuilder.Entity<PostSearchIndex>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => x.PostId).IsUnique();
+                e.HasIndex(x => new { x.CreatedAt, x.IsQuestion });
+                e.HasIndex(x => x.AuthorId);
+
+                // Embedding property is marked with [NotMapped] attribute
+
+                e.HasIndex(x => x.Title);
+                e.HasIndex(x => x.Content);
+            });
+
+            modelBuilder.Entity<StudyMaterialSearchIndex>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => x.StudyMaterialId).IsUnique();
+                e.HasIndex(x => new { x.CategoryId, x.IsApproved, x.CreatedAt });
+                e.HasIndex(x => x.UploaderId);
+
+                // Embedding property is marked with [NotMapped] attribute
+
+                e.HasIndex(x => x.Title);
+                e.HasIndex(x => x.Description);
+            });
+
+            modelBuilder.Entity<SearchQueryLog>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => x.UserId);
+                e.HasIndex(x => x.CreatedAt);
+                e.HasIndex(x => new { x.Query, x.CreatedAt });
             });
         }
     }

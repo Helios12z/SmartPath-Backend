@@ -20,6 +20,8 @@ namespace SmartPathBackend.Interfaces
         IBotConversationRepository BotConversations { get; }
         IBotMessageRepository BotMessages { get; }
         IKnowledgeRepository Knowledges { get; }
+        IMaterialCategoryRepository MaterialCategories { get; }
+        IStudyMaterialRepository StudyMaterials { get; }
 
         Task BeginTransactionAsync();
         Task CommitTransactionAsync();

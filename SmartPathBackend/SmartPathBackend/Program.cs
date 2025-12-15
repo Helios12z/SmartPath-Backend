@@ -141,6 +141,8 @@ builder.Services.AddScoped<IBadgeRepository, BadgeRepository>();
 builder.Services.AddScoped<IBotConversationRepository, BotConversationRepository>();
 builder.Services.AddScoped<IBotMessageRepository, BotMessageRepository>();
 builder.Services.AddScoped<IKnowledgeRepository, KnowledgeRepository>();
+builder.Services.AddScoped<IMaterialCategoryRepository, MaterialCategoryRepository>();
+builder.Services.AddScoped<IStudyMaterialRepository, StudyMaterialRepository>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -165,6 +167,10 @@ builder.Services.AddScoped<ILLMService, LLMService>();
 builder.Services.AddScoped<ILLMProvider, LocalLLMProvider>();
 builder.Services.AddScoped<IReputationService, ReputationService>();
 builder.Services.AddScoped<IKnowledgeService, KnowledgeService>();
+builder.Services.AddScoped<ISearchService, SearchService>();
+builder.Services.AddScoped<IMaterialCategoryTreeService, MaterialCategoryTreeService>();
+builder.Services.AddScoped<IStudyMaterialLibraryService, StudyMaterialLibraryService>();
+builder.Services.AddScoped<IStudyMaterialAiReviewer, StudyMaterialAiReviewer>();
 
 builder.Services.AddDbContext<SmartPathDbContext>(options =>
 {

@@ -26,6 +26,10 @@ namespace SmartPathBackend.Data
             var categories = BuildCategories();
             await UpsertCategoriesAsync(db, categories, ct);
 
+            // ===== 3.1) MATERIAL CATEGORIES (Tree for Study Library) ===== (unique by Slug)
+            var materialCategories = BuildMaterialCategories();
+            await UpsertMaterialCategoriesAsync(db, materialCategories, ct);
+
             // ===== 4) POSTS (10) =====
             var posts = BuildPosts();
             await UpsertByIdAsync(db.Posts, posts, ct);
@@ -272,11 +276,19 @@ namespace SmartPathBackend.Data
 
         private static List<Category> BuildCategories()
         {
-            string[] names = {
-                "General","Q&A","Tutorials","Mathematics","Computer Science",
-                "Databases","Algorithms","Data Structures","DevOps","Web Development"
+            return new()
+            {
+                new Category { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc01"), Name = "General" },
+                new Category { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc02"), Name = "Q&A" },
+                new Category { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc03"), Name = "Tutorials" },
+                new Category { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc04"), Name = "Mathematics" },
+                new Category { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc05"), Name = "Computer Science" },
+                new Category { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc06"), Name = "Databases" },
+                new Category { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc07"), Name = "Algorithms" },
+                new Category { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc08"), Name = "Data Structures" },
+                new Category { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc09"), Name = "DevOps" },
+                new Category { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc10"), Name = "Web Development" }
             };
-            return names.Select(n => new Category { Id = Guid.NewGuid(), Name = n }).ToList();
         }
 
         private static List<Post> BuildPosts() => new()
@@ -295,19 +307,19 @@ namespace SmartPathBackend.Data
 
         private static List<CategoryPost> BuildCategoryPosts(List<Post> posts, List<Category> categories)
         {
-            Category Cat(string name) => categories.Single(c => c.Name == name);
+            // Use fixed GUIDs for categories to avoid foreign key constraint violations
             return new()
             {
-                new CategoryPost{ PostId=posts[0].Id, CategoryId=Cat("General").Id },
-                new CategoryPost{ PostId=posts[1].Id, CategoryId=Cat("Algorithms").Id },
-                new CategoryPost{ PostId=posts[2].Id, CategoryId=Cat("Mathematics").Id },
-                new CategoryPost{ PostId=posts[3].Id, CategoryId=Cat("Databases").Id },
-                new CategoryPost{ PostId=posts[4].Id, CategoryId=Cat("Web Development").Id },
-                new CategoryPost{ PostId=posts[5].Id, CategoryId=Cat("Computer Science").Id },
-                new CategoryPost{ PostId=posts[6].Id, CategoryId=Cat("Data Structures").Id },
-                new CategoryPost{ PostId=posts[7].Id, CategoryId=Cat("General").Id },
-                new CategoryPost{ PostId=posts[8].Id, CategoryId=Cat("Computer Science").Id },
-                new CategoryPost{ PostId=posts[9].Id, CategoryId=Cat("Q&A").Id },
+                new CategoryPost{ PostId=posts[0].Id, CategoryId=Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc01") }, // General
+                new CategoryPost{ PostId=posts[1].Id, CategoryId=Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc07") }, // Algorithms
+                new CategoryPost{ PostId=posts[2].Id, CategoryId=Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc04") }, // Mathematics
+                new CategoryPost{ PostId=posts[3].Id, CategoryId=Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc06") }, // Databases
+                new CategoryPost{ PostId=posts[4].Id, CategoryId=Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc10") }, // Web Development
+                new CategoryPost{ PostId=posts[5].Id, CategoryId=Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc05") }, // Computer Science
+                new CategoryPost{ PostId=posts[6].Id, CategoryId=Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc08") }, // Data Structures
+                new CategoryPost{ PostId=posts[7].Id, CategoryId=Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc01") }, // General
+                new CategoryPost{ PostId=posts[8].Id, CategoryId=Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc05") }, // Computer Science
+                new CategoryPost{ PostId=posts[9].Id, CategoryId=Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc02") }, // Q&A
             };
         }
 
@@ -461,6 +473,133 @@ namespace SmartPathBackend.Data
             new ReputationCheckpoint{ Id=Guid.NewGuid(), ContentType=ContentType.Post,    ContentId=Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9"), LikeBandsApplied=1, DislikeBandsApplied=0 },
         };
 
+        private static List<MaterialCategory> BuildMaterialCategories()
+        {
+            // Helper tạo node
+            MaterialCategory Node(
+                string name,
+                string slug,
+                Guid id,
+                Guid? parentId,
+                string path,
+                int level,
+                int sortOrder
+            ) => new MaterialCategory
+            {
+                Id = id,
+                Name = name,
+                Slug = slug,
+                ParentId = parentId,
+                Path = path,
+                Level = level,
+                SortOrder = sortOrder,
+                IsActive = true,
+                CreatedAt = T0,
+                UpdatedAt = T0
+            };
+
+            // Root
+            var csId = Guid.Parse("c0000000-0000-0000-0000-000000000001");
+            var mathId = Guid.Parse("c0000000-0000-0000-0000-000000000002");
+            var dbId = Guid.Parse("c0000000-0000-0000-0000-000000000003");
+            var webId = Guid.Parse("c0000000-0000-0000-0000-000000000004");
+            var devopsId = Guid.Parse("c0000000-0000-0000-0000-000000000005");
+            var aiId = Guid.Parse("c0000000-0000-0000-0000-000000000006");
+
+            var list = new List<MaterialCategory>
+            {
+                Node("Computer Science", "cs", csId, null, "cs", 0, 1),
+                Node("Mathematics", "math", mathId, null, "math", 0, 2),
+                Node("Databases", "databases", dbId, null, "databases", 0, 3),
+                Node("Web Development", "web", webId, null, "web", 0, 4),
+                Node("DevOps", "devops", devopsId, null, "devops", 0, 5),
+                Node("AI / Machine Learning", "ai", aiId, null, "ai", 0, 6),
+            };
+
+            // CS children
+            var algoId = Guid.Parse("c0000000-0000-0000-0000-000000000101");
+            var dsId = Guid.Parse("c0000000-0000-0000-0000-000000000102");
+            var osId = Guid.Parse("c0000000-0000-0000-0000-000000000103");
+            var netId = Guid.Parse("c0000000-0000-0000-0000-000000000104");
+
+            list.AddRange(new[]
+            {
+                Node("Algorithms", "algorithms", algoId, csId, "cs/algorithms", 1, 1),
+                Node("Data Structures", "data-structures", dsId, csId, "cs/data-structures", 1, 2),
+                Node("Operating Systems", "operating-systems", osId, csId, "cs/operating-systems", 1, 3),
+                Node("Computer Networks", "networks", netId, csId, "cs/networks", 1, 4),
+            });
+
+            // Algorithms sub
+            list.AddRange(new[]
+            {
+                Node("Graph", "graph", Guid.Parse("c0000000-0000-0000-0000-000000000201"), algoId, "cs/algorithms/graph", 2, 1),
+                Node("Dynamic Programming", "dynamic-programming", Guid.Parse("c0000000-0000-0000-0000-000000000202"), algoId, "cs/algorithms/dynamic-programming", 2, 2),
+                Node("Greedy", "greedy", Guid.Parse("c0000000-0000-0000-0000-000000000203"), algoId, "cs/algorithms/greedy", 2, 3),
+            });
+
+            // Data Structures sub
+            list.AddRange(new[]
+            {
+                Node("Array & String", "array-string", Guid.Parse("c0000000-0000-0000-0000-000000000211"), dsId, "cs/data-structures/array-string", 2, 1),
+                Node("Linked List", "linked-list", Guid.Parse("c0000000-0000-0000-0000-000000000212"), dsId, "cs/data-structures/linked-list", 2, 2),
+                Node("Tree", "tree", Guid.Parse("c0000000-0000-0000-0000-000000000213"), dsId, "cs/data-structures/tree", 2, 3),
+                Node("Hash Table", "hash-table", Guid.Parse("c0000000-0000-0000-0000-000000000214"), dsId, "cs/data-structures/hash-table", 2, 4),
+            });
+
+            // Math children
+            list.AddRange(new[]
+            {
+                Node("Linear Algebra", "linear-algebra", Guid.Parse("c0000000-0000-0000-0000-000000000301"), mathId, "math/linear-algebra", 1, 1),
+                Node("Calculus", "calculus", Guid.Parse("c0000000-0000-0000-0000-000000000302"), mathId, "math/calculus", 1, 2),
+                Node("Probability & Statistics", "probability-statistics", Guid.Parse("c0000000-0000-0000-0000-000000000303"), mathId, "math/probability-statistics", 1, 3),
+            });
+
+            // Databases children
+            var sqlId = Guid.Parse("c0000000-0000-0000-0000-000000000401");
+            var nosqlId = Guid.Parse("c0000000-0000-0000-0000-000000000402");
+            list.AddRange(new[]
+            {
+                Node("SQL", "sql", sqlId, dbId, "databases/sql", 1, 1),
+                Node("NoSQL", "nosql", nosqlId, dbId, "databases/nosql", 1, 2),
+            });
+
+            list.AddRange(new[]
+            {
+                Node("PostgreSQL", "postgresql", Guid.Parse("c0000000-0000-0000-0000-000000000411"), sqlId, "databases/sql/postgresql", 2, 1),
+                Node("Indexing & Query Tuning", "indexing-query-tuning", Guid.Parse("c0000000-0000-0000-0000-000000000412"), sqlId, "databases/sql/indexing-query-tuning", 2, 2),
+                Node("Redis", "redis", Guid.Parse("c0000000-0000-0000-0000-000000000421"), nosqlId, "databases/nosql/redis", 2, 1),
+                Node("MongoDB", "mongodb", Guid.Parse("c0000000-0000-0000-0000-000000000422"), nosqlId, "databases/nosql/mongodb", 2, 2),
+            });
+
+            // Web children
+            list.AddRange(new[]
+            {
+                Node("Frontend", "frontend", Guid.Parse("c0000000-0000-0000-0000-000000000501"), webId, "web/frontend", 1, 1),
+                Node("Backend", "backend", Guid.Parse("c0000000-0000-0000-0000-000000000502"), webId, "web/backend", 1, 2),
+                Node("Security", "security", Guid.Parse("c0000000-0000-0000-0000-000000000503"), webId, "web/security", 1, 3),
+            });
+
+            // DevOps children
+            list.AddRange(new[]
+            {
+                Node("Docker", "docker", Guid.Parse("c0000000-0000-0000-0000-000000000601"), devopsId, "devops/docker", 1, 1),
+                Node("Kubernetes", "kubernetes", Guid.Parse("c0000000-0000-0000-0000-000000000602"), devopsId, "devops/kubernetes", 1, 2),
+                Node("CI/CD", "cicd", Guid.Parse("c0000000-0000-0000-0000-000000000603"), devopsId, "devops/cicd", 1, 3),
+                Node("Observability", "observability", Guid.Parse("c0000000-0000-0000-0000-000000000604"), devopsId, "devops/observability", 1, 4),
+            });
+
+            // AI children
+            list.AddRange(new[]
+            {
+                Node("Machine Learning Basics", "ml-basics", Guid.Parse("c0000000-0000-0000-0000-000000000701"), aiId, "ai/ml-basics", 1, 1),
+                Node("NLP", "nlp", Guid.Parse("c0000000-0000-0000-0000-000000000702"), aiId, "ai/nlp", 1, 2),
+                Node("LLM & RAG", "llm-rag", Guid.Parse("c0000000-0000-0000-0000-000000000703"), aiId, "ai/llm-rag", 1, 3),
+            });
+
+            return list;
+        }
+
         // ----------------- Upsert helpers -----------------
 
         private static async Task UpsertByIdAsync<T>(DbSet<T> set, IEnumerable<T> items, CancellationToken ct) where T : class
@@ -568,6 +707,22 @@ namespace SmartPathBackend.Data
             {
                 if (!existing.Any(x => x.ContentType == r.ContentType && x.ContentId == r.ContentId))
                     await db.ReputationCheckpoints.AddAsync(r, ct);
+            }
+        }
+
+        private static async Task UpsertMaterialCategoriesAsync(SmartPathDbContext db, IEnumerable<MaterialCategory> categories, CancellationToken ct)
+        {
+            // Unique by Slug (đúng thiết kế: Slug unique)
+            var existingSlugs = await db.MaterialCategories.AsNoTracking()
+                .Select(x => x.Slug)
+                .ToListAsync(ct);
+
+            var existing = new HashSet<string>(existingSlugs);
+
+            foreach (var c in categories)
+            {
+                if (!existing.Contains(c.Slug))
+                    await db.MaterialCategories.AddAsync(c, ct);
             }
         }
     }
