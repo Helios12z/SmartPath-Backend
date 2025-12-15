@@ -43,6 +43,15 @@ namespace SmartPathBackend.Controllers
         public async Task<IActionResult> GetByUser(Guid userId) =>
             Ok(await _posts.GetByUserAsync(userId));
 
+        [HttpGet("recommendations")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetRecommendations([FromQuery] int? limit)
+        {
+            var userId = User.GetUserIdOrNull();
+            var recommendations = await _posts.GetRecommendationsAsync(userId, limit);
+            return Ok(recommendations);
+        }
+
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> Create([FromBody] PostRequestDto req)

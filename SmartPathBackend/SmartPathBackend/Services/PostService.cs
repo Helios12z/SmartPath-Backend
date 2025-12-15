@@ -174,5 +174,102 @@ namespace SmartPathBackend.Services
             await _unitOfWork.SaveChangesAsync();
             return true;
         }
+
+        public async Task<IEnumerable<PostResponseDto>> GetRecommendationsAsync(Guid? currentUserId, int? limit = null)
+        {
+            var limitToUse = Math.Min(limit ?? 20, 50); // Default to 20, max 50
+
+            var q = _unitOfWork.Posts.Query()
+                        .AsNoTracking()
+                        .Where(p => p.IsDeletedAt == null)
+                        .Include(p => p.Author)
+                        .Include(p => p.Reactions)
+                        .Include(p => p.Comments)
+                        .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
+
+            var posts = await q.ToListAsync();
+            var recommendations = CalculateRecommendationScores(posts)
+                .Where(p => p.Score > 1.0) // Minimum threshold
+                .OrderByDescending(p => p.Score)
+                .Take(limitToUse)
+                .Select(p => p.Dto);
+
+            return recommendations;
+        }
+
+        private static List<(PostResponseDto Dto, double Score)> CalculateRecommendationScores(List<Post> posts)
+        {
+            var result = new List<(PostResponseDto, double)>();
+            var random = new Random();
+            var now = DateTime.UtcNow;
+
+            foreach (var post in posts)
+            {
+                // Extract metrics
+                var positiveReactions = post.Reactions?.Count(r => r.IsPositive) ?? 0;
+                var negativeReactions = post.Reactions?.Count(r => !r.IsPositive) ?? 0;
+                var commentCount = post.Comments?.Count() ?? 0;
+                var timeSinceCreationHours = (now - post.CreatedAt).TotalHours;
+                var authorPoints = post.Author?.Point ?? 0;
+
+                // Calculate Engagement Score (E)
+                var negativePenalty = Math.Min(0.7, negativeReactions / (positiveReactions + negativeReactions + 1));
+                var engagementScore = (positiveReactions + 2 * commentCount)
+                    * Math.Log(1 + positiveReactions + commentCount + 1)
+                    * (1 - negativePenalty);
+
+                // Calculate Time Decay Factor (D)
+                const double lambda = 0.1; // Decay rate
+                var timeDecayFactor = Math.Exp(-lambda * timeSinceCreationHours / 24);
+
+                // Calculate Author Weight (A_w)
+                var authorWeight = 1 + 0.1 * Math.Log(1 + authorPoints / 1000.0);
+
+                // Base score
+                var score = engagementScore * timeDecayFactor * authorWeight;
+
+                // Apply boost for new posts with engagement
+                if (timeSinceCreationHours < 6 && (positiveReactions + commentCount) > 3)
+                {
+                    score *= 1.5;
+                }
+
+                // Apply penalty for potential spam
+                var negativeRatio = positiveReactions > 0 ? (double)negativeReactions / positiveReactions : 0;
+                if (negativeRatio > 0.7)
+                {
+                    score *= 0.3;
+                }
+
+                // Add small randomness for variety
+                var randomFactor = 0.95 + (random.NextDouble() * 0.10); // 0.95 to 1.05
+                score *= randomFactor;
+
+                // Create DTO
+                var dto = new PostResponseDto
+                {
+                    Id = post.Id,
+                    Title = post.Title,
+                    Content = post.Content,
+                    IsQuestion = post.IsQuestion,
+                    CreatedAt = post.CreatedAt,
+                    UpdatedAt = post.UpdatedAt,
+                    AuthorUsername = post.Author?.Username ?? "Unknown",
+                    AuthorAvatarUrl = post.Author?.AvatarUrl,
+                    AuthorId = post.AuthorId,
+                    AuthorPoint = authorPoints,
+                    PositiveReactionCount = positiveReactions,
+                    NegativeReactionCount = negativeReactions,
+                    CommentCount = commentCount,
+                    Categories = post.CategoryPosts?.Select(cp => cp.Category?.Name).Where(n => n != null).Cast<string>().ToList() ?? new List<string>(),
+                    IsPositiveReacted = null, // Not calculated for recommendations
+                    IsNegativeReacted = null  // Not calculated for recommendations
+                };
+
+                result.Add((dto, score));
+            }
+
+            return result;
+        }
     }
 }
