@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using SmartPathBackend.Data;
 namespace SmartPathBackend.Migrations
 {
     [DbContext(typeof(SmartPathDbContext))]
-    partial class SmartPathDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251215044157_AddStudyMaterialAndAISearch")]
+    partial class AddStudyMaterialAndAISearch
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -575,10 +578,16 @@ namespace SmartPathBackend.Migrations
 
                     b.HasIndex("Content");
 
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Content"), "GIN");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Content"), new[] { "gin_trgm_ops" });
+
                     b.HasIndex("PostId")
                         .IsUnique();
 
                     b.HasIndex("Title");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Title"), "GIN");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Title"), new[] { "gin_trgm_ops" });
 
                     b.HasIndex("CreatedAt", "IsQuestion");
 
@@ -999,10 +1008,16 @@ namespace SmartPathBackend.Migrations
 
                     b.HasIndex("Description");
 
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Description"), "GIN");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Description"), new[] { "gin_trgm_ops" });
+
                     b.HasIndex("StudyMaterialId")
                         .IsUnique();
 
                     b.HasIndex("Title");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Title"), "GIN");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Title"), new[] { "gin_trgm_ops" });
 
                     b.HasIndex("UploaderId");
 

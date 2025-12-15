@@ -26,6 +26,8 @@ namespace SmartPathBackend.Repositories
         public IBotConversationRepository BotConversations { get; }
         public IBotMessageRepository BotMessages { get; }
         public IKnowledgeRepository Knowledges { get; }
+        public IMaterialCategoryRepository MaterialCategories { get; }
+        public IStudyMaterialRepository StudyMaterials { get; }
 
         public UnitOfWork(
             SmartPathDbContext context,
@@ -44,7 +46,9 @@ namespace SmartPathBackend.Repositories
             IBadgeRepository badges,
             IBotConversationRepository botConversations,
             IBotMessageRepository botMessages,
-            IKnowledgeRepository knowledges
+            IKnowledgeRepository knowledges,
+            IMaterialCategoryRepository materialCategories,
+            IStudyMaterialRepository studyMaterials
         )
         {
             _context = context;
@@ -65,6 +69,8 @@ namespace SmartPathBackend.Repositories
             BotConversations = botConversations;
             BotMessages = botMessages;
             Knowledges = knowledges;
+            MaterialCategories = materialCategories;
+            StudyMaterials = studyMaterials;
         }
 
         public async Task BeginTransactionAsync()

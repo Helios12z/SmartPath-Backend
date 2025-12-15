@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using SmartPathBackend.Data;
 namespace SmartPathBackend.Migrations
 {
     [DbContext(typeof(SmartPathDbContext))]
-    partial class SmartPathDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251215035341_AddSearchIndicesAndQueryLogs")]
+    partial class AddSearchIndicesAndQueryLogs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -341,9 +344,6 @@ namespace SmartPathBackend.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -373,9 +373,6 @@ namespace SmartPathBackend.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -485,104 +482,6 @@ namespace SmartPathBackend.Migrations
                     b.HasIndex("AuthorId");
 
                     b.ToTable("Posts");
-                });
-
-            modelBuilder.Entity("SmartPathBackend.Models.Entities.PostSearchIndex", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AuthorAvatar")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("AuthorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AuthorName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("AuthorUsername")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CategoryIds")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CategoryNames")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CategorySlugs")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("CommentCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsQuestion")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsSolved")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime>("LastIndexedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("LikeCount")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("PostId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Summary")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<string>("Tags")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Version")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ViewCount")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AuthorId");
-
-                    b.HasIndex("Content");
-
-                    b.HasIndex("PostId")
-                        .IsUnique();
-
-                    b.HasIndex("Title");
-
-                    b.HasIndex("CreatedAt", "IsQuestion");
-
-                    b.ToTable("PostSearchIndices");
                 });
 
             modelBuilder.Entity("SmartPathBackend.Models.Entities.Reaction", b =>
@@ -700,84 +599,6 @@ namespace SmartPathBackend.Migrations
                     b.ToTable("ReputationCheckpoints");
                 });
 
-            modelBuilder.Entity("SmartPathBackend.Models.Entities.SearchQueryLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Filters")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("IpAddress")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("NormalizedQuery")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Page")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("PageSize")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("PostResults")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Query")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<TimeSpan>("QueryTime")
-                        .HasColumnType("interval");
-
-                    b.Property<int>("ResultCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("SearchType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SortBy")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SortOrder")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("StudyMaterialResults")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("UserAgent")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("UserIdentifier")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("Query", "CreatedAt");
-
-                    b.ToTable("SearchQueryLogs");
-                });
-
             modelBuilder.Entity("SmartPathBackend.Models.Entities.StudyMaterial", b =>
                 {
                     b.Property<Guid>("Id")
@@ -892,123 +713,6 @@ namespace SmartPathBackend.Migrations
                     b.HasIndex("MaterialId");
 
                     b.ToTable("StudyMaterialReviews");
-                });
-
-            modelBuilder.Entity("SmartPathBackend.Models.Entities.StudyMaterialSearchIndex", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<float>("AiConfidence")
-                        .HasColumnType("real");
-
-                    b.Property<string>("AiReason")
-                        .HasColumnType("text");
-
-                    b.Property<float>("AverageRating")
-                        .HasColumnType("real");
-
-                    b.Property<Guid>("CategoryId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("CategoryLevel")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("CategoryName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CategoryPath")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("DownloadCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("DownloadUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsApproved")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime>("LastIndexedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("ResourceType")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ReviewCount")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("StudyMaterialId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Summary")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Tags")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UploaderAvatar")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("UploaderId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("UploaderName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("UploaderUsername")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Version")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ViewCount")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Description");
-
-                    b.HasIndex("StudyMaterialId")
-                        .IsUnique();
-
-                    b.HasIndex("Title");
-
-                    b.HasIndex("UploaderId");
-
-                    b.HasIndex("CategoryId", "IsApproved", "CreatedAt");
-
-                    b.ToTable("StudyMaterialSearchIndices");
                 });
 
             modelBuilder.Entity("SmartPathBackend.Models.Entities.SystemLog", b =>
@@ -1259,25 +963,6 @@ namespace SmartPathBackend.Migrations
                     b.Navigation("Author");
                 });
 
-            modelBuilder.Entity("SmartPathBackend.Models.Entities.PostSearchIndex", b =>
-                {
-                    b.HasOne("SmartPathBackend.Models.Entities.User", "Author")
-                        .WithMany()
-                        .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SmartPathBackend.Models.Entities.Post", "Post")
-                        .WithMany()
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Author");
-
-                    b.Navigation("Post");
-                });
-
             modelBuilder.Entity("SmartPathBackend.Models.Entities.Reaction", b =>
                 {
                     b.HasOne("SmartPathBackend.Models.Entities.Comment", "Comment")
@@ -1314,17 +999,6 @@ namespace SmartPathBackend.Migrations
                     b.Navigation("Reporter");
                 });
 
-            modelBuilder.Entity("SmartPathBackend.Models.Entities.SearchQueryLog", b =>
-                {
-                    b.HasOne("SmartPathBackend.Models.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("SmartPathBackend.Models.Entities.StudyMaterial", b =>
                 {
                     b.HasOne("SmartPathBackend.Models.Entities.MaterialCategory", "Category")
@@ -1353,33 +1027,6 @@ namespace SmartPathBackend.Migrations
                         .IsRequired();
 
                     b.Navigation("Material");
-                });
-
-            modelBuilder.Entity("SmartPathBackend.Models.Entities.StudyMaterialSearchIndex", b =>
-                {
-                    b.HasOne("SmartPathBackend.Models.Entities.MaterialCategory", "Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SmartPathBackend.Models.Entities.StudyMaterial", "StudyMaterial")
-                        .WithMany()
-                        .HasForeignKey("StudyMaterialId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SmartPathBackend.Models.Entities.User", "Uploader")
-                        .WithMany()
-                        .HasForeignKey("UploaderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Category");
-
-                    b.Navigation("StudyMaterial");
-
-                    b.Navigation("Uploader");
                 });
 
             modelBuilder.Entity("SmartPathBackend.Models.Entities.BotConversation", b =>
