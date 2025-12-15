@@ -25,7 +25,9 @@ namespace SmartPathBackend.Models.DTOs
         double? AiConfidence,
         Guid? AiSuggestedCategoryId,
         string? AiReason,
-        DateTime CreatedAt
+        DateTime CreatedAt,
+        double AverageRating = 0.0,
+        int TotalRatings = 0
     );
 
     public record ReviewDecisionRequest(Status Decision, string? Reason);

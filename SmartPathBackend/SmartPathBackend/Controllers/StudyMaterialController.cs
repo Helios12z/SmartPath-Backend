@@ -64,5 +64,52 @@ namespace SmartPathBackend.Controllers
             var ok = await _svc.AdminReviewAsync(adminId, id, req);
             return ok ? NoContent() : NotFound();
         }
+
+        #region Rating System
+
+        [HttpGet("{id:guid}/ratings/stats")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetRatingStats(Guid id)
+        {
+            var stats = await _svc.GetRatingStatsAsync(id);
+            return Ok(stats);
+        }
+
+        [HttpPost("{id:guid}/ratings")]
+        [Authorize]
+        public async Task<IActionResult> RateMaterial(Guid id, [FromBody] StudyMaterialRatingRequest req)
+        {
+            var userId = User.GetUserIdOrThrow();
+            var result = await _svc.RateMaterialAsync(userId, id, req);
+            return result == null ? BadRequest() : Ok(result);
+        }
+
+        [HttpGet("{id:guid}/ratings")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetMaterialRatings(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        {
+            var ratings = await _svc.GetMaterialRatingsAsync(id, page, pageSize);
+            return Ok(ratings);
+        }
+
+        [HttpGet("{id:guid}/ratings/my")]
+        [Authorize]
+        public async Task<IActionResult> GetUserRating(Guid id)
+        {
+            var userId = User.GetUserIdOrThrow();
+            var rating = await _svc.GetUserRatingAsync(userId, id);
+            return rating == null ? NotFound() : Ok(rating);
+        }
+
+        [HttpDelete("{id:guid}/ratings")]
+        [Authorize]
+        public async Task<IActionResult> DeleteRating(Guid id)
+        {
+            var userId = User.GetUserIdOrThrow();
+            var ok = await _svc.DeleteRatingAsync(userId, id);
+            return ok ? NoContent() : NotFound();
+        }
+
+        #endregion
     }
 }

@@ -171,6 +171,7 @@ builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IMaterialCategoryTreeService, MaterialCategoryTreeService>();
 builder.Services.AddScoped<IStudyMaterialLibraryService, StudyMaterialLibraryService>();
 builder.Services.AddScoped<IStudyMaterialAiReviewer, StudyMaterialAiReviewer>();
+builder.Services.AddScoped<IIntelligentFileSummarizer, IntelligentFileSummarizer>();
 
 builder.Services.AddDbContext<SmartPathDbContext>(options =>
 {

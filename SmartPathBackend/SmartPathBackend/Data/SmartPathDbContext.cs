@@ -36,6 +36,7 @@ namespace SmartPathBackend.Data
         public DbSet<MaterialCategory> MaterialCategories => Set<MaterialCategory>();
         public DbSet<StudyMaterial> StudyMaterials => Set<StudyMaterial>();
         public DbSet<StudyMaterialReview> StudyMaterialReviews => Set<StudyMaterialReview>();
+        public DbSet<StudyMaterialRating> StudyMaterialRatings => Set<StudyMaterialRating>();
         public DbSet<PostSearchIndex> PostSearchIndices => Set<PostSearchIndex>();
         public DbSet<StudyMaterialSearchIndex> StudyMaterialSearchIndices => Set<StudyMaterialSearchIndex>();
         public DbSet<SearchQueryLog> SearchQueryLogs => Set<SearchQueryLog>();
@@ -269,6 +270,18 @@ namespace SmartPathBackend.Data
 
                 e.HasIndex(x => x.Title);
                 e.HasIndex(x => x.Description);
+            });
+
+            modelBuilder.Entity<StudyMaterialRating>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => new { x.MaterialId, x.UserId }).IsUnique(); // One rating per user per material
+                e.HasIndex(x => x.MaterialId);
+                e.HasIndex(x => x.UserId);
+                e.HasIndex(x => x.CreatedAt);
+
+                // Ensure rating is between 1 and 5
+                e.HasCheckConstraint("ck_rating_range", "\"Rating\" >= 1 AND \"Rating\" <= 5");
             });
 
             modelBuilder.Entity<SearchQueryLog>(e =>
