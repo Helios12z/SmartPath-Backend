@@ -26,14 +26,16 @@ namespace SmartPathBackend.Repositories
         {
             return await _dbSet.AsNoTracking()
                 .Where(c => c.CreatedAt >= startInclusive)
-                .GroupBy(c => c.CreatedAt.Date)                
+                .GroupBy(c => c.CreatedAt.Date)
                 .Select(g => new DailyCountDto
                 {
-                    Date = g.Key,                             
+                    Date = g.Key,
                     Count = g.Count()
                 })
                 .OrderBy(x => x.Date)
                 .ToListAsync();
         }
+
+        public IQueryable<Comment> Query() => _dbSet;
     }
 }

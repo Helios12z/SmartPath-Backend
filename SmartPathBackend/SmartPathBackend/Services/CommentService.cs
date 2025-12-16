@@ -1,5 +1,6 @@
 ﻿using Amazon.Runtime.Internal.Endpoints.StandardLibrary;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders.Physical;
 using SmartPathBackend.Interfaces;
 using SmartPathBackend.Interfaces.Services;
@@ -21,37 +22,86 @@ namespace SmartPathBackend.Services
             _notifications = notifications;
         }
 
-        public async Task<IEnumerable<CommentResponseDto>> GetByPostAsync(Guid postId, Guid? currentUserId)
+        public async Task<(IEnumerable<CommentResponseDto> Items, int Total)> GetByPostAsync(Guid postId, Guid? currentUserId, int page = 1, int pageSize = 20)
         {
-            var list = await _unitOfWork.Comments.GetByPostAsync(postId);
+            // Ensure valid page parameters
+            page = Math.Max(1, page);
+            pageSize = Math.Min(Math.Max(1, pageSize), 100); // Max 100 items per page
 
-            CommentResponseDto Map(Comment c) => new CommentResponseDto
+            // Get top-level comments only (no parent) for pagination
+            var topLevelQuery = _unitOfWork.Comments.Query()
+                .AsNoTracking()
+                .Where(c => c.PostId == postId && c.ParentCommentId == null)
+                .Include(c => c.Author)
+                .Include(c => c.Reactions);
+
+            var total = await topLevelQuery.CountAsync();
+
+            var topLevelComments = await topLevelQuery
+                .OrderBy(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            // Get ALL replies for this post (not paginated) - include all nested replies
+            var allReplies = await _unitOfWork.Comments.Query()
+                .AsNoTracking()
+                .Where(c => c.PostId == postId && c.ParentCommentId.HasValue)
+                .Include(c => c.Author)
+                .Include(c => c.Reactions)
+                .ToListAsync();
+
+            // Group replies by parent for easy lookup
+            var repliesByParent = allReplies.GroupBy(r => r.ParentCommentId)
+                .ToDictionary(g => g.Key!.Value, g => g.ToList());
+
+            // Recursive function to build complete comment tree including all nested replies
+            List<CommentResponseDto> BuildCommentTree(Comment comment, int depth = 0)
             {
-                Id = c.Id,
-                Content = c.Content,
-                AuthorId = c.AuthorId,
-                AuthorUsername = c.Author.Username,
-                AuthorAvatarUrl = c.Author.AvatarUrl,
-                AuthorPoint = c.Author.Point,
-                CreatedAt = c.CreatedAt,
+                // Prevent infinite recursion with depth limit (though in practice shouldn't be needed)
+                if (depth > 10) return new List<CommentResponseDto>();
 
-                PositiveReactionCount = c.Reactions != null ? c.Reactions.Count(r => r.IsPositive) : 0,
-                NegativeReactionCount = c.Reactions != null ? c.Reactions.Count(r => !r.IsPositive) : 0,
+                var dto = new CommentResponseDto
+                {
+                    Id = comment.Id,
+                    Content = comment.Content,
+                    AuthorId = comment.AuthorId,
+                    AuthorUsername = comment.Author.Username,
+                    AuthorAvatarUrl = comment.Author.AvatarUrl,
+                    AuthorPoint = comment.Author.Point,
+                    CreatedAt = comment.CreatedAt,
 
-                IsPositiveReacted = currentUserId.HasValue
-                    ? c.Reactions!.Any(r => r.UserId == currentUserId && r.IsPositive)
-                    : (bool?)null,
+                    PositiveReactionCount = comment.Reactions != null ? comment.Reactions.Count(r => r.IsPositive) : 0,
+                    NegativeReactionCount = comment.Reactions != null ? comment.Reactions.Count(r => !r.IsPositive) : 0,
 
-                IsNegativeReacted = currentUserId.HasValue
-                    ? c.Reactions!.Any(r => r.UserId == currentUserId && !r.IsPositive)
-                    : (bool?)null,
+                    IsPositiveReacted = currentUserId.HasValue
+                        ? comment.Reactions!.Any(r => r.UserId == currentUserId && r.IsPositive)
+                        : (bool?)null,
 
-                Replies = c.Replies != null
-                    ? c.Replies.Select(Map).ToList()
-                    : new List<CommentResponseDto>()
-            };
+                    IsNegativeReacted = currentUserId.HasValue
+                        ? comment.Reactions!.Any(r => r.UserId == currentUserId && !r.IsPositive)
+                        : (bool?)null,
 
-            return list.Select(Map);
+                    // Recursively get ALL child replies (not paginated) - each child builds its own tree
+                    Replies = repliesByParent.ContainsKey(comment.Id)
+                        ? repliesByParent[comment.Id]
+                            .SelectMany(child => BuildCommentTree(child, depth + 1))
+                            .OrderBy(r => r.CreatedAt)
+                            .ToList()
+                        : new List<CommentResponseDto>()
+                };
+
+                return new List<CommentResponseDto> { dto };
+            }
+
+            // Build complete comment trees for all top-level comments
+            var items = new List<CommentResponseDto>();
+            foreach (var topLevelComment in topLevelComments)
+            {
+                items.AddRange(BuildCommentTree(topLevelComment));
+            }
+
+            return (items, total);
         }
 
         public async Task<CommentResponseDto> CreateAsync(Guid authorId, CommentRequestDto request)

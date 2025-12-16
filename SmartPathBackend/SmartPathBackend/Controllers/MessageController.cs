@@ -14,8 +14,17 @@ namespace SmartPathBackend.Controllers
         public MessageController(IMessageService messages) => _messages = messages;
 
         [HttpGet("by-chat/{chatId:guid}")]
-        public async Task<IActionResult> ByChat(Guid chatId) =>
-            Ok(await _messages.GetMessagesByChatAsync(chatId));
+        public async Task<IActionResult> ByChat(Guid chatId, [FromQuery] string? cursor = null, [FromQuery] int limit = 50)
+        {
+            var (items, nextCursor) = await _messages.GetMessagesByChatAsync(chatId, cursor, limit);
+
+            return Ok(new
+            {
+                items = items,
+                nextCursor = nextCursor,
+                hasMore = !string.IsNullOrEmpty(nextCursor)
+            });
+        }
 
         [HttpPost]
         public async Task<IActionResult> Send([FromBody] MessageRequestDto req)

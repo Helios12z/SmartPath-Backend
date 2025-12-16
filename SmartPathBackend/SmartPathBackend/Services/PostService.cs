@@ -4,6 +4,7 @@ using SmartPathBackend.Interfaces;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
 using SmartPathBackend.Models.Entities;
+using SmartPathBackend.Models.Enums;
 
 namespace SmartPathBackend.Services
 {
@@ -51,8 +52,12 @@ namespace SmartPathBackend.Services
             });
         }
 
-        public async Task<IEnumerable<PostResponseDto>> GetAllAsync(Guid? currentUserId)
+        public async Task<(IEnumerable<PostResponseDto> Items, int Total)> GetAllAsync(Guid? currentUserId, int page = 1, int pageSize = 20)
         {
+            // Ensure valid page parameters
+            page = Math.Max(1, page);
+            pageSize = Math.Min(Math.Max(1, pageSize), 100); // Max 100 items per page
+
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
                         .Where(p => p.IsDeletedAt == null)
@@ -61,7 +66,14 @@ namespace SmartPathBackend.Services
                         .Include(p => p.Comments)
                         .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
 
-            return await ProjectToDto(q, currentUserId).ToListAsync();
+            var total = await q.CountAsync();
+            var items = await ProjectToDto(q, currentUserId)
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, total);
         }
 
         public async Task<PostResponseDto?> GetByIdAsync(Guid id, Guid? currentUserId)
@@ -77,8 +89,12 @@ namespace SmartPathBackend.Services
             return await ProjectToDto(q, currentUserId).FirstOrDefaultAsync();
         }
 
-        public async Task<IEnumerable<PostResponseDto>> GetByUserAsync(Guid userId)
+        public async Task<(IEnumerable<PostResponseDto> Items, int Total)> GetByUserAsync(Guid userId, int page = 1, int pageSize = 20)
         {
+            // Ensure valid page parameters
+            page = Math.Max(1, page);
+            pageSize = Math.Min(Math.Max(1, pageSize), 100); // Max 100 items per page
+
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
                         .Where(p => p.AuthorId == userId && p.IsDeletedAt == null)
@@ -87,7 +103,14 @@ namespace SmartPathBackend.Services
                         .Include(p => p.Comments)
                         .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
 
-            return await ProjectToDto(q, userId).ToListAsync();
+            var total = await q.CountAsync();
+            var items = await ProjectToDto(q, userId)
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, total);
         }
 
         public async Task<PostResponseDto> CreateAsync(Guid authorId, PostRequestDto request)
@@ -188,8 +211,37 @@ namespace SmartPathBackend.Services
                         .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
 
             var posts = await q.ToListAsync();
-            var recommendations = CalculateRecommendationScores(posts)
-                .Where(p => p.Score > 1.0) // Minimum threshold
+
+            // Get friendships if user is logged in
+            HashSet<Guid> followedUsers = new HashSet<Guid>();
+            HashSet<Guid> mutualFriends = new HashSet<Guid>();
+
+            if (currentUserId.HasValue)
+            {
+                var friendships = await _unitOfWork.Friendships.Query()
+                    .AsNoTracking()
+                    .Where(f => f.Status == Status.Accepted &&
+                               (f.FollowerId == currentUserId.Value || f.FollowedUserId == currentUserId.Value))
+                    .ToListAsync();
+
+                followedUsers = friendships
+                    .Where(f => f.FollowerId == currentUserId.Value)
+                    .Select(f => f.FollowedUserId)
+                    .ToHashSet();
+
+                var usersFollowingMe = friendships
+                    .Where(f => f.FollowedUserId == currentUserId.Value)
+                    .Select(f => f.FollowerId)
+                    .ToHashSet();
+
+                // Mutual friends = intersection of people I follow AND people who follow me
+                mutualFriends = followedUsers
+                    .Intersect(usersFollowingMe)
+                    .ToHashSet();
+            }
+
+            var recommendations = CalculateRecommendationScores(posts, currentUserId, followedUsers, mutualFriends)
+                .Where(p => p.Score > 0.1) // Lowered minimum threshold for users with no friends
                 .OrderByDescending(p => p.Score)
                 .Take(limitToUse)
                 .Select(p => p.Dto);
@@ -197,7 +249,11 @@ namespace SmartPathBackend.Services
             return recommendations;
         }
 
-        private static List<(PostResponseDto Dto, double Score)> CalculateRecommendationScores(List<Post> posts)
+        private static List<(PostResponseDto Dto, double Score)> CalculateRecommendationScores(
+            List<Post> posts,
+            Guid? currentUserId,
+            HashSet<Guid> followedUsers,
+            HashSet<Guid> mutualFriends)
         {
             var result = new List<(PostResponseDto, double)>();
             var random = new Random();
@@ -213,10 +269,17 @@ namespace SmartPathBackend.Services
                 var authorPoints = post.Author?.Point ?? 0;
 
                 // Calculate Engagement Score (E)
+                var totalInteractions = positiveReactions + commentCount;
                 var negativePenalty = Math.Min(0.7, negativeReactions / (positiveReactions + negativeReactions + 1));
                 var engagementScore = (positiveReactions + 2 * commentCount)
-                    * Math.Log(1 + positiveReactions + commentCount + 1)
+                    * Math.Log(1 + totalInteractions + 1)
                     * (1 - negativePenalty);
+
+                // Ensure minimum engagement score for very new posts
+                if (totalInteractions == 0 && timeSinceCreationHours < 24)
+                {
+                    engagementScore = Math.Max(engagementScore, 0.5); // Minimum score for new posts
+                }
 
                 // Calculate Time Decay Factor (D)
                 const double lambda = 0.1; // Decay rate
@@ -225,8 +288,25 @@ namespace SmartPathBackend.Services
                 // Calculate Author Weight (A_w)
                 var authorWeight = 1 + 0.1 * Math.Log(1 + authorPoints / 1000.0);
 
+                // Calculate Friend Boost Factor (F_b)
+                double friendBoost = 1.0;
+                if (currentUserId.HasValue && post.AuthorId != currentUserId.Value)
+                {
+                    if (mutualFriends.Contains(post.AuthorId))
+                    {
+                        friendBoost = 2.5; // Mutual friend - maximum boost
+                    }
+                    else if (followedUsers.Contains(post.AuthorId))
+                    {
+                        friendBoost = 1.8; // Following - moderate boost
+                    }
+                }
+
                 // Base score
-                var score = engagementScore * timeDecayFactor * authorWeight;
+                var score = engagementScore * timeDecayFactor * authorWeight * friendBoost;
+
+                // Ensure minimum score to prevent empty results
+                score = Math.Max(score, 0.2);
 
                 // Apply boost for new posts with engagement
                 if (timeSinceCreationHours < 6 && (positiveReactions + commentCount) > 3)

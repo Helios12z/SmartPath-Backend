@@ -33,5 +33,7 @@ namespace SmartPathBackend.Repositories
                     !m.IsRead &&
                     m.SenderId != userId)
                 .ToListAsync();
+
+        public IQueryable<Message> Query() => _dbSet;
     }
 }

@@ -23,10 +23,19 @@ namespace SmartPathBackend.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
-            var userId= User.GetUserIdOrNull();
-            return Ok(await _posts.GetAllAsync(userId));
+            var userId = User.GetUserIdOrNull();
+            var (items, total) = await _posts.GetAllAsync(userId, page, pageSize);
+
+            return Ok(new
+            {
+                items = items,
+                total = total,
+                currentPage = page,
+                pageSize = pageSize,
+                totalPages = (int)Math.Ceiling((double)total / pageSize)
+            });
         }
 
         [HttpGet("{id:guid}")]
@@ -40,8 +49,19 @@ namespace SmartPathBackend.Controllers
 
         [HttpGet("by-user/{userId:guid}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetByUser(Guid userId) =>
-            Ok(await _posts.GetByUserAsync(userId));
+        public async Task<IActionResult> GetByUser(Guid userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        {
+            var (items, total) = await _posts.GetByUserAsync(userId, page, pageSize);
+
+            return Ok(new
+            {
+                items = items,
+                total = total,
+                currentPage = page,
+                pageSize = pageSize,
+                totalPages = (int)Math.Ceiling((double)total / pageSize)
+            });
+        }
 
         [HttpGet("recommendations")]
         [AllowAnonymous]

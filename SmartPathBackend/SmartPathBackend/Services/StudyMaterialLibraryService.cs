@@ -203,7 +203,7 @@ namespace SmartPathBackend.Services
             return await MapToResponseAsync(material);
         }
 
-        public async Task<(List<StudyMaterialResponse> Items, int Total)> SearchAsync(Guid? categoryId, Status? status, string? q, int page, int pageSize)
+        public async Task<(List<StudyMaterialResponse> Items, int Total)> SearchAsync(Guid? categoryId, Status? status, string? q, int page = 1, int pageSize = 20)
         {
             var query = _context.StudyMaterials
                 .Include(m => m.Uploader)
@@ -251,7 +251,7 @@ namespace SmartPathBackend.Services
             return (responses, total);
         }
 
-        public async Task<(List<StudyMaterialResponse> Items, int Total)> GetMineAsync(Guid uploaderId, Status? status, int page, int pageSize)
+        public async Task<(List<StudyMaterialResponse> Items, int Total)> GetMineAsync(Guid uploaderId, Status? status, int page = 1, int pageSize = 20)
         {
             var query = _context.StudyMaterials
                 .Include(m => m.Uploader)

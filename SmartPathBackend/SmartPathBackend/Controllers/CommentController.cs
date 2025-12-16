@@ -23,10 +23,19 @@ namespace SmartPathBackend.Controllers
 
         [HttpGet("by-post/{postId:guid}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetByPost(Guid postId)
+        public async Task<IActionResult> GetByPost(Guid postId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
             var userId = User.GetUserIdOrNull();
-            return Ok(await _comments.GetByPostAsync(postId, userId));
+            var (items, total) = await _comments.GetByPostAsync(postId, userId, page, pageSize);
+
+            return Ok(new
+            {
+                items = items,
+                total = total,
+                currentPage = page,
+                pageSize = pageSize,
+                totalPages = (int)Math.Ceiling((double)total / pageSize)
+            });
         }
 
         [HttpPost]

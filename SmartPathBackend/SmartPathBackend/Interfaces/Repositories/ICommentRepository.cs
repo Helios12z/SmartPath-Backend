@@ -8,5 +8,6 @@ namespace SmartPathBackend.Interfaces.Repositories
         Task<IEnumerable<Comment>> GetByPostAsync(Guid postId);
         Task<IEnumerable<Comment>> GetRepliesAsync(Guid parentCommentId);
         Task<IEnumerable<DailyCountDto>> CountCreatedDailyAsync(DateTime startInclusive);
+        IQueryable<Comment> Query();
     }
 }

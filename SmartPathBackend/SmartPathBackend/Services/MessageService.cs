@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using SmartPathBackend.Interfaces;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
@@ -74,27 +75,74 @@ namespace SmartPathBackend.Services
             return dto;
         }
 
-        public async Task<IEnumerable<MessageResponseDto>> GetMessagesByChatAsync(Guid chatId)
+        public async Task<(IEnumerable<MessageResponseDto> Items, string? NextCursor)> GetMessagesByChatAsync(Guid chatId, string? cursor = null, int limit = 50)
         {
-            var messages = await _unitOfWork.Messages.GetMessagesByChatAsync(chatId);
+            // Ensure valid limit
+            limit = Math.Min(Math.Max(1, limit), 100); // Max 100 messages per request
 
-            var result = new List<MessageResponseDto>();
-            foreach (var m in messages)
+            IOrderedQueryable<Message> query = _unitOfWork.Messages.Query()
+                .AsNoTracking()
+                .Where(m => m.ChatId == chatId)
+                .Include(m => m.Sender)
+                .OrderByDescending(m => m.CreatedAt);
+
+            // Parse cursor (expects base64 encoded timestamp)
+            DateTime? cursorTime = null;
+            if (!string.IsNullOrEmpty(cursor))
             {
-                var sender = m.Sender ?? await _unitOfWork.Users.GetByIdAsync(m.SenderId);
+                try
+                {
+                    var cursorBytes = Convert.FromBase64String(cursor);
+                    cursorTime = DateTime.FromBinary(BitConverter.ToInt64(cursorBytes, 0));
+                }
+                catch
+                {
+                    // Invalid cursor, ignore
+                }
+            }
 
-                result.Add(new MessageResponseDto
+            if (cursorTime.HasValue)
+            {
+                query = (IOrderedQueryable<Message>)query.Where(m => m.CreatedAt < cursorTime.Value);
+            }
+
+            var messages = await query
+                .Take(limit + 1) // Take one extra to check if there are more
+                .ToListAsync();
+
+            // Check if there are more messages
+            var hasMore = messages.Count > limit;
+            if (hasMore)
+            {
+                messages.RemoveAt(messages.Count - 1); // Remove the extra item
+            }
+
+            // Generate next cursor from the last message
+            string? nextCursor = null;
+            if (hasMore && messages.Any())
+            {
+                var lastMessageTime = messages.Last().CreatedAt;
+                var cursorBytes = BitConverter.GetBytes(lastMessageTime.ToBinary());
+                nextCursor = Convert.ToBase64String(cursorBytes);
+            }
+
+            // Map to DTOs and reverse order to show oldest first
+            var result = messages
+                .AsEnumerable()
+                .Reverse()
+                .Select(m => new MessageResponseDto
                 {
                     Id = m.Id,
                     ChatId = m.ChatId,
                     Content = m.Content,
                     SenderId = m.SenderId,
-                    SenderUsername = sender?.Username ?? "unknown",
+                    SenderUsername = m.Sender?.Username ?? "unknown",
                     IsRead = m.IsRead,
                     CreatedAt = m.CreatedAt
-                });
-            }
-            return result;
+                })
+                .ToList();
+
+            return (result, nextCursor);
         }
 
         public async Task<bool> MarkAsReadAsync(Guid readerId, Guid messageId)

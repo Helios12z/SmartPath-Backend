@@ -17,5 +17,7 @@ namespace SmartPathBackend.Repositories
             => await _dbSet.FirstOrDefaultAsync(f =>
                 (f.FollowerId == userAId && f.FollowedUserId == userBId) ||
                 (f.FollowerId == userBId && f.FollowedUserId == userAId));
+
+        public IQueryable<Friendship> Query() => _context.Friendships;
     }
 }

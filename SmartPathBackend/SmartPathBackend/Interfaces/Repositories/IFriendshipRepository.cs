@@ -6,5 +6,6 @@ namespace SmartPathBackend.Interfaces.Repositories
     {
         Task<IEnumerable<Friendship>> GetFriendsAsync(Guid userId);
         Task<Friendship?> GetRelationshipAsync(Guid userAId, Guid userBId);
+        IQueryable<Friendship> Query();
     }
 }
