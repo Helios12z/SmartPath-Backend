@@ -13,15 +13,18 @@ namespace SmartPathBackend.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPostAiReviewer _aiReviewer;
+        private readonly ISearchService _searchService;
         private readonly ILogger<PostService> _logger;
 
         public PostService(
             IUnitOfWork unitOfWork,
             IPostAiReviewer aiReviewer,
+            ISearchService searchService,
             ILogger<PostService> logger)
         {
             _unitOfWork = unitOfWork;
             _aiReviewer = aiReviewer;
+            _searchService = searchService;
             _logger = logger;
         }
 
@@ -266,6 +269,21 @@ namespace SmartPathBackend.Services
 
             _logger.LogInformation("Post {PostId} saved to database with status: {Status}", post.Id, post.Status);
 
+            // Index the post for search
+            if (status == Status.Accepted)
+            {
+                try
+                {
+                    await _searchService.ReindexPostAsync(post.Id);
+                    _logger.LogInformation("Post {PostId} indexed successfully for search", post.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to index post {PostId} for search", post.Id);
+                    // Don't fail the post creation if indexing fails
+                }
+            }
+
             // Re-load post with all relationships for response
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
@@ -302,6 +320,21 @@ namespace SmartPathBackend.Services
 
             _unitOfWork.Posts.Update(post);
             await _unitOfWork.SaveChangesAsync();
+
+            // Reindex the post for search
+            if (post.Status == Status.Accepted)
+            {
+                try
+                {
+                    await _searchService.ReindexPostAsync(post.Id);
+                    _logger.LogInformation("Post {PostId} reindexed successfully for search", post.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to reindex post {PostId} for search", post.Id);
+                    // Don't fail the post update if indexing fails
+                }
+            }
 
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()

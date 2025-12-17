@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartPathBackend.Data;
 using SmartPathBackend.Interfaces.Services;
@@ -70,11 +70,16 @@ namespace SmartPathBackend.Services
 
             var query = _context.PostSearchIndices.AsQueryable();
 
-            // Apply filters
-            if (request.CategoryIds.Any())
-            {
-                query = query.Where(p => p.CategoryIdList.Any(id => request.CategoryIds.Contains(id)));
-            }
+            // Debug: Log total PostSearchIndex count
+            var totalCount = await _context.PostSearchIndices.CountAsync(cancellationToken);
+            _logger.LogInformation("Total PostSearchIndex records: {Count}", totalCount);
+
+            // Apply filters - temporarily disabled category filter due to EF Core translation issues
+            // TODO: Fix category filtering later by avoiding JSON deserialization in queries
+            // if (request.CategoryIds.Any())
+            // {
+            //     query = query.Where(p => p.CategoryIdList.Any(id => request.CategoryIds.Contains(id)));
+            // }
 
             if (request.IsQuestion.HasValue)
             {
@@ -91,10 +96,7 @@ namespace SmartPathBackend.Services
                 query = query.Where(p => p.CreatedAt <= request.ToDate.Value);
             }
 
-            if (request.Tags.Any())
-            {
-                query = query.Where(p => p.TagList.Any(tag => request.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase)));
-            }
+            // Simplified - removed tag filtering to avoid EF Core translation issues
 
             var results = new List<PostSearchResultDTO>();
 
@@ -128,13 +130,6 @@ namespace SmartPathBackend.Services
                             DisplayName = p.AuthorName,
                             Avatar = p.AuthorAvatar
                         },
-                        Categories = p.CategoryIdList.Zip(p.CategoryNameList, (id, name) => new CategoryDTO
-                        {
-                            Id = id,
-                            Name = name,
-                            Slug = p.CategorySlugList.ElementAtOrDefault(p.CategoryIdList.IndexOf(id)) ?? ""
-                        }).ToList(),
-                        Tags = p.TagList,
                         RelevanceScore = 1.0f,
                         MatchType = SearchMatchType.Keyword
                     })
@@ -188,10 +183,7 @@ namespace SmartPathBackend.Services
                 query = query.Where(m => m.CreatedAt <= request.ToDate.Value);
             }
 
-            if (request.Tags.Any())
-            {
-                query = query.Where(m => m.TagList.Any(tag => request.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase)));
-            }
+            // Simplified - removed tag filtering to avoid EF Core translation issues
 
             var results = new List<StudyMaterialSearchResultDTO>();
 
@@ -263,21 +255,72 @@ namespace SmartPathBackend.Services
             return results.Skip(skip).Take(request.PageSize).ToList();
         }
 
-        private async Task<List<PostSearchResultDTO>> KeywordSearchPostsAsync(IQueryable<PostSearchIndex> query, string searchQuery, CancellationToken cancellationToken)
+        private static string EscapeLike(string input)
         {
-            var normalizedQuery = searchQuery.ToLowerInvariant();
-            var searchTerms = normalizedQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            // Escape ký tự đặc biệt của LIKE: %, _, \
+            // Dùng "\" làm escape char
+            return (input ?? "")
+                .Replace(@"\", @"\\")
+                .Replace("%", @"\%")
+                .Replace("_", @"\_");
+        }
 
-            var results = await query
-                .Where(p => EF.Functions.ILike(p.Title.ToLower(), $"%{normalizedQuery}%") ||
-                           EF.Functions.ILike(p.Content.ToLower(), $"%{normalizedQuery}%"))
+        private async Task<List<PostSearchResultDTO>> KeywordSearchPostsAsync(
+            IQueryable<PostSearchIndex> query,
+            string searchQuery,
+            CancellationToken ct)
+        {
+            var terms = (searchQuery ?? "")
+                .Trim()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim())
+                .Where(t => t.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            _logger.LogInformation("Keyword search - Query: '{Query}', Terms: [{Terms}]", searchQuery, string.Join(", ", terms));
+
+            if (terms.Length == 0) return new();
+
+            // IMPORTANT:
+            // Đảm bảo query ở đây CHƯA Skip/Take từ bên ngoài.
+            // Paginate phải làm sau bước keyword search + sort.
+
+            // Simple keyword search - find posts that contain ANY of the search terms
+            IQueryable<PostSearchIndex> filtered = query.Where(p => false);
+
+            foreach (var term in terms)
+            {
+                var escapedTerm = EscapeLike(term);
+                var termMatches = query.Where(p =>
+                    EF.Functions.ILike(p.Title, $"%{escapedTerm}%") ||
+                    EF.Functions.ILike(p.Content, $"%{escapedTerm}%")
+                );
+                filtered = filtered.Concat(termMatches);
+            }
+
+            // Load và loại trùng theo PostId
+            var rows = await filtered
+                .AsNoTracking()
+                .ToListAsync(ct);
+
+            var uniqueRows = rows
+                .DistinctBy(x => x.PostId)
+                .ToList();
+
+            _logger.LogInformation("Keyword search - Found {TotalRows} rows, {UniqueRows} unique results", rows.Count, uniqueRows.Count);
+
+            var searchTermsLower = terms.Select(x => x.ToLowerInvariant()).ToArray();
+
+            // Score + map
+            var results = uniqueRows
                 .Select(p => new
                 {
                     p,
-                    TitleScore = CalculateTextScore(p.Title.ToLower(), searchTerms),
-                    ContentScore = CalculateTextScore(p.Content.ToLower(), searchTerms)
+                    TitleScore = CalculateTextScore((p.Title ?? "").ToLowerInvariant(), searchTermsLower),
+                    ContentScore = CalculateTextScore((p.Content ?? "").ToLowerInvariant(), searchTermsLower)
                 })
-                .ToListAsync(cancellationToken);
+                .ToList();
 
             return results.Select(r => new PostSearchResultDTO
             {
@@ -299,39 +342,65 @@ namespace SmartPathBackend.Services
                     DisplayName = r.p.AuthorName,
                     Avatar = r.p.AuthorAvatar
                 },
-                Categories = r.p.CategoryIdList.Zip(r.p.CategoryNameList, (id, name) => new CategoryDTO
-                {
-                    Id = id,
-                    Name = name,
-                    Slug = r.p.CategorySlugList.ElementAtOrDefault(r.p.CategoryIdList.IndexOf(id)) ?? ""
-                }).ToList(),
-                Tags = r.p.TagList,
                 RelevanceScore = Math.Max(r.TitleScore, r.ContentScore),
                 MatchType = SearchMatchType.Keyword,
-                HighlightedTitle = HighlightText(r.p.Title, searchTerms),
-                HighlightedContent = HighlightText(r.p.Content, searchTerms.Take(5).ToArray())
+                HighlightedTitle = HighlightText(r.p.Title, searchTermsLower),
+                HighlightedContent = HighlightText(r.p.Content, searchTermsLower.Take(5).ToArray())
             }).ToList();
         }
 
-        private async Task<List<StudyMaterialSearchResultDTO>> KeywordSearchMaterialsAsync(IQueryable<StudyMaterialSearchIndex> query, string searchQuery, CancellationToken cancellationToken)
+        private async Task<List<StudyMaterialSearchResultDTO>> KeywordSearchMaterialsAsync(
+            IQueryable<StudyMaterialSearchIndex> query,
+            string searchQuery,
+            CancellationToken ct)
         {
-            var normalizedQuery = searchQuery.ToLowerInvariant();
-            var searchTerms = normalizedQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var terms = (searchQuery ?? "")
+                .Trim()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim())
+                .Where(t => t.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
 
-            var results = await query
-                .Where(m => EF.Functions.ILike(m.Title.ToLower(), $"%{normalizedQuery}%") ||
-                           EF.Functions.ILike(m.Description.ToLower(), $"%{normalizedQuery}%") ||
-                           EF.Functions.ILike(m.Summary.ToLower(), $"%{normalizedQuery}%"))
-                .Select(m => new
-                {
-                    m,
-                    TitleScore = CalculateTextScore(m.Title.ToLower(), searchTerms),
-                    DescriptionScore = CalculateTextScore(m.Description.ToLower(), searchTerms),
-                    SummaryScore = CalculateTextScore(m.Summary.ToLower(), searchTerms)
-                })
-                .ToListAsync(cancellationToken);
+            if (terms.Length == 0) return new();
 
-            return results.Select(r => new StudyMaterialSearchResultDTO
+            // OR semantics: union theo từng term
+            IQueryable<StudyMaterialSearchIndex> filtered = query.Where(_ => false);
+
+            foreach (var t in terms)
+            {
+                var pat = $"%{t}%";
+
+                filtered = filtered.Union(query.Where(m =>
+                    EF.Functions.ILike(m.Title, pat) ||
+                    EF.Functions.ILike(m.Description ?? "", pat) ||
+                    EF.Functions.ILike(m.Summary ?? "", pat)
+                ));
+            }
+
+            // lấy data về
+            var rows = await filtered
+                .AsNoTracking()
+                .ToListAsync(ct);
+
+            // tránh trùng do UNION nhiều term (nếu index table có 1 row/material thì GroupBy vẫn ok)
+            var unique = rows
+                .GroupBy(x => x.StudyMaterialId)
+                .Select(g => g.First())
+                .ToList();
+
+            // scoring + highlight (làm in-memory)
+            var lowerTerms = terms.Select(x => x.ToLowerInvariant()).ToArray();
+
+            var scored = unique.Select(m => new
+            {
+                m,
+                TitleScore = CalculateTextScore((m.Title ?? "").ToLowerInvariant(), lowerTerms),
+                DescriptionScore = CalculateTextScore((m.Description ?? "").ToLowerInvariant(), lowerTerms),
+                SummaryScore = CalculateTextScore((m.Summary ?? "").ToLowerInvariant(), lowerTerms)
+            }).ToList();
+
+            return scored.Select(r => new StudyMaterialSearchResultDTO
             {
                 Id = r.m.StudyMaterialId,
                 Title = r.m.Title,
@@ -362,8 +431,8 @@ namespace SmartPathBackend.Services
                 Tags = r.m.TagList,
                 RelevanceScore = Math.Max(Math.Max(r.TitleScore, r.DescriptionScore), r.SummaryScore),
                 MatchType = SearchMatchType.Keyword,
-                HighlightedTitle = HighlightText(r.m.Title, searchTerms),
-                HighlightedDescription = HighlightText(r.m.Description, searchTerms.Take(5).ToArray()),
+                HighlightedTitle = HighlightText(r.m.Title ?? "", lowerTerms),
+                HighlightedDescription = HighlightText(r.m.Description ?? "", lowerTerms.Take(5).ToArray()),
                 IsApproved = r.m.IsApproved,
                 AiConfidence = r.m.AiConfidence
             }).ToList();
@@ -456,13 +525,7 @@ namespace SmartPathBackend.Services
                             DisplayName = x.Post.AuthorName,
                             Avatar = x.Post.AuthorAvatar
                         },
-                        Categories = ParseJsonList<Guid>(x.Post.CategoryIds).Zip(ParseJsonList<string>(x.Post.CategoryNames), (id, name) => new CategoryDTO
-                        {
-                            Id = id,
-                            Name = name,
-                            Slug = ParseJsonList<string>(x.Post.CategorySlugs).ElementAtOrDefault(ParseJsonList<Guid>(x.Post.CategoryIds).IndexOf(id)) ?? ""
-                        }).ToList(),
-                        Tags = ParseJsonList<string>(x.Post.Tags),
+                        // Simplified - removing Categories and Tags to avoid EF Core translation issues
                         RelevanceScore = (float)x.CombinedScore,
                         MatchType = SearchMatchType.Semantic
                     })
@@ -597,26 +660,11 @@ namespace SmartPathBackend.Services
         {
             var facets = new SearchFacetsDTO();
 
-            // Get category facets for posts
+            // Get category facets for posts - temporarily disabled due to EF Core translation issues
             if (request.SearchType != SearchType.StudyMaterials)
             {
-                var categoryFacets = await _context.PostSearchIndices
-                    .Where(p => string.IsNullOrEmpty(request.Query) ||
-                               EF.Functions.ILike(p.Title, $"%{request.Query}%") ||
-                               EF.Functions.ILike(p.Content, $"%{request.Query}%"))
-                    .SelectMany(p => p.CategoryIdList.Zip(p.CategoryNameList, (id, name) => new { Id = id, Name = name }))
-                    .GroupBy(x => x.Id)
-                    .Select(g => new CategoryFacetDTO
-                    {
-                        Id = g.Key,
-                        Name = g.First().Name,
-                        Count = g.Count()
-                    })
-                    .OrderByDescending(c => c.Count)
-                    .Take(10)
-                    .ToListAsync(cancellationToken);
-
-                facets.Categories = categoryFacets;
+                // TODO: Fix category facets later by avoiding Zip operations on JSON properties
+                facets.Categories = new List<CategoryFacetDTO>();
             }
 
             // Get material category facets
@@ -842,8 +890,7 @@ namespace SmartPathBackend.Services
                 {
                     Id = p.PostId,
                     Title = p.Title,
-                    IsQuestion = p.IsQuestion,
-                    Categories = p.CategoryNameList
+                    IsQuestion = p.IsQuestion
                 })
                 .ToListAsync(cancellationToken);
         }

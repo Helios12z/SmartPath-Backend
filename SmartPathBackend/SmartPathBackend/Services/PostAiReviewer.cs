@@ -38,10 +38,9 @@ namespace SmartPathBackend.Services
                 : post.Content;
 
             var systemPrompt = """
-You are an AI content moderator for a Q&A and educational platform. Your task is to review posts for:
+You are an AI content moderator for a student forum. Your task is to review posts for:
 1. Content appropriateness (no spam, hate speech, inappropriate content)
-2. Category relevance (does the post match the selected categories?)
-3. Overall quality (is the post helpful and well-formatted?)
+2. Category relevance (does the post match the selected categories? But don't be too strict)
 
 You must respond with a single JSON object in this exact format:
 {
