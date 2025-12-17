@@ -332,7 +332,7 @@ namespace SmartPathBackend.Services
 
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
-                        .Where(p => p.IsDeletedAt == null)
+                        .Where(p => p.IsDeletedAt == null && p.Status == Status.Accepted)
                         .Include(p => p.Author)
                         .Include(p => p.Reactions)
                         .Include(p => p.Comments)

@@ -559,12 +559,6 @@ namespace SmartPathBackend.Data
                 var userIndex = random.Next(0, userIds.Length);
                 var isQuestion = random.Next(0, 3) == 0; // 1/3 chance of being a question
 
-                // Random AI review values
-                var confidence = random.NextDouble() * 0.5 + 0.5; // 0.5 to 1.0
-                var categoryMatch = random.NextDouble() > 0.2; // 80% chance of matching category
-                var status = confidence >= 0.7 && categoryMatch ? Status.Accepted :
-                           confidence >= 0.4 && categoryMatch ? Status.Pending : Status.Rejected;
-
                 posts.Add(new Post
                 {
                     Id = Guid.NewGuid(),
@@ -575,11 +569,10 @@ namespace SmartPathBackend.Data
                     CreatedAt = T0.AddMinutes(random.Next(0, 10080)), // Random time within past week
                     UpdatedAt = T0.AddMinutes(random.Next(0, 10080)),
                     IsDeletedAt = null,
-                    Status = status,
-                    AiConfidence = confidence,
-                    AiCategoryMatch = categoryMatch,
-                    AiReason = status == Status.Accepted ? "Good quality content" :
-                              status == Status.Pending ? "Needs manual review" : "Content requires improvement",
+                    Status = Status.Accepted,
+                    AiConfidence = 0.9,
+                    AiCategoryMatch = true,
+                    AiReason = "Good quality content",
                     ReviewedAt = T0.AddMinutes(random.Next(1, 60))
                 });
             }
