@@ -2,6 +2,7 @@
 using HtmlAgilityPack;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Pgvector;
 using SmartPathBackend.Interfaces;
 using SmartPathBackend.Interfaces.Repositories;
@@ -22,11 +23,13 @@ namespace SmartPathBackend.Services
         private readonly IEmbedderService _embedder;
         private readonly IUnitOfWork _uow;
         private readonly FileExtensionContentTypeProvider _contentTypes = new();
+        private readonly ILogger<KnowledgeService> _logger;
 
-        public KnowledgeService(IEmbedderService embedder, IKnowledgeRepository repo, IUnitOfWork uow)
+        public KnowledgeService(IEmbedderService embedder, IKnowledgeRepository repo, IUnitOfWork uow, ILogger<KnowledgeService> logger)
         {
             _embedder = embedder;
-            _uow = uow; 
+            _uow = uow;
+            _logger = logger;
         }
 
         public async Task<Guid> IngestRawAsync(string title, string? sourceUrl, string rawText, CancellationToken ct = default)
@@ -163,9 +166,9 @@ namespace SmartPathBackend.Services
                                 ct: ct
                             );
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // TODO: log nếu cần, nhưng không để 1 link hỏng phá toàn batch
+                            _logger.LogWarning(ex, "Failed to process URL: {Url} for document: {DocumentId}", url, docId);
                         }
                     }
                 }

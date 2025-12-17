@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Pgvector;
 
 namespace SmartPathBackend.Models.Entities
 {
@@ -52,8 +53,7 @@ namespace SmartPathBackend.Models.Entities
 
         public string Tags { get; set; } = string.Empty; // JSON array of tags
 
-        [NotMapped]
-        public float[]? Embedding { get; set; }
+        public Vector? Embedding { get; set; }
 
         public DateTime LastIndexedAt { get; set; }
 

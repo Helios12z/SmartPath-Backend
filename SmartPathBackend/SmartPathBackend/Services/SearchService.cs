@@ -7,6 +7,7 @@ using SmartPathBackend.Models.Entities;
 using SmartPathBackend.Models.Enums;
 using SmartPathBackend.Services;
 using System.Text.Json;
+using Pgvector;
 
 namespace SmartPathBackend.Services
 {
@@ -33,14 +34,9 @@ namespace SmartPathBackend.Services
 
             try
             {
-                // Parallel search for posts and study materials
-                var postTask = SearchPostsAsync(request, cancellationToken);
-                var materialTask = SearchStudyMaterialsAsync(request, cancellationToken);
-
-                await Task.WhenAll(postTask, materialTask);
-
-                result.Posts = await postTask;
-                result.StudyMaterials = await materialTask;
+                // Sequential search to avoid DbContext concurrency issues
+                result.Posts = await SearchPostsAsync(request, cancellationToken);
+                result.StudyMaterials = await SearchStudyMaterialsAsync(request, cancellationToken);
                 result.TotalPosts = result.Posts.Count;
                 result.TotalStudyMaterials = result.StudyMaterials.Count;
 
@@ -378,51 +374,99 @@ namespace SmartPathBackend.Services
             try
             {
                 // Generate embedding for the search query
-                var queryEmbedding = await _embedderService.EmbedOneAsync(searchQuery);
-                if (queryEmbedding == null || queryEmbedding.Length == 0)
+                var queryEmbeddingArray = await _embedderService.EmbedOneAsync(searchQuery);
+                if (queryEmbeddingArray == null || queryEmbeddingArray.Length == 0)
                 {
                     _logger.LogWarning("Failed to generate embedding for query: {Query}", searchQuery);
                     return new List<PostSearchResultDTO>();
                 }
 
-                // For now, perform basic text search as semantic search placeholder
-                // TODO: Implement proper vector similarity search with Npgsql vector support
-                var results = await query
-                    .Where(p => p.Embedding != null &&
-                               (EF.Functions.ILike(p.Title, $"%{searchQuery}%") ||
-                                EF.Functions.ILike(p.Content, $"%{searchQuery}%")))
-                    .Take(20) // Get top 20 semantic matches
-                    .Select(p => new PostSearchResultDTO
+                var queryEmbedding = new Vector(queryEmbeddingArray);
+
+                // Enhanced semantic search using embedding-based approach
+                var searchLower = searchQuery.ToLowerInvariant();
+
+                // Get all posts with embeddings first, then perform semantic matching in memory
+                var candidates = await query
+                    .Where(p => p.Embedding != null)
+                    .Take(100) // Get top 100 candidates to avoid memory issues
+                    .Select(p => new
                     {
-                        Id = p.PostId,
-                        Title = p.Title,
-                        Content = p.Content,
-                        Summary = p.Summary,
-                        IsQuestion = p.IsQuestion,
-                        IsSolved = p.IsSolved,
-                        ViewCount = p.ViewCount,
-                        LikeCount = p.LikeCount,
-                        CommentCount = p.CommentCount,
-                        CreatedAt = p.CreatedAt,
-                        UpdatedAt = p.UpdatedAt,
+                        p.PostId,
+                        p.Title,
+                        p.Content,
+                        p.Summary,
+                        p.IsQuestion,
+                        p.IsSolved,
+                        p.ViewCount,
+                        p.LikeCount,
+                        p.CommentCount,
+                        p.CreatedAt,
+                        p.UpdatedAt,
+                        p.AuthorId,
+                        p.AuthorName,
+                        p.AuthorUsername,
+                        p.AuthorAvatar,
+                        p.CategoryIds,
+                        p.CategoryNames,
+                        p.CategorySlugs,
+                        p.Tags,
+                        Embedding = p.Embedding!
+                    })
+                    .ToListAsync(cancellationToken);
+
+                // Calculate semantic similarity scores using actual embeddings
+                var results = candidates
+                    .Select(p => new
+                    {
+                        Post = p,
+                        SimilarityScore = CalculateVectorSimilarity(queryEmbeddingArray, p.Embedding),
+                        TextSimilarity = CalculateTextSemanticSimilarity(searchLower,
+                            p.Title.ToLowerInvariant() + " " +
+                            p.Content.ToLowerInvariant() + " " +
+                            (p.Summary ?? "").ToLowerInvariant())
+                    })
+                    .Select(x => new
+                    {
+                        x.Post,
+                        // Combine vector similarity and text similarity
+                        CombinedScore = (x.SimilarityScore * 0.7) + (x.TextSimilarity * 0.3)
+                    })
+                    .Where(x => x.CombinedScore > 0.1) // Filter out very low similarity
+                    .OrderByDescending(x => x.CombinedScore)
+                    .ThenByDescending(x => x.Post.LikeCount)
+                    .Take(20)
+                    .Select(x => new PostSearchResultDTO
+                    {
+                        Id = x.Post.PostId,
+                        Title = x.Post.Title,
+                        Content = x.Post.Content,
+                        Summary = x.Post.Summary,
+                        IsQuestion = x.Post.IsQuestion,
+                        IsSolved = x.Post.IsSolved,
+                        ViewCount = x.Post.ViewCount,
+                        LikeCount = x.Post.LikeCount,
+                        CommentCount = x.Post.CommentCount,
+                        CreatedAt = x.Post.CreatedAt,
+                        UpdatedAt = x.Post.UpdatedAt,
                         Author = new AuthorDTO
                         {
-                            Id = p.AuthorId,
-                            Username = p.AuthorUsername,
-                            DisplayName = p.AuthorName,
-                            Avatar = p.AuthorAvatar
+                            Id = x.Post.AuthorId,
+                            Username = x.Post.AuthorUsername,
+                            DisplayName = x.Post.AuthorName,
+                            Avatar = x.Post.AuthorAvatar
                         },
-                        Categories = p.CategoryIdList.Zip(p.CategoryNameList, (id, name) => new CategoryDTO
+                        Categories = ParseJsonList<Guid>(x.Post.CategoryIds).Zip(ParseJsonList<string>(x.Post.CategoryNames), (id, name) => new CategoryDTO
                         {
                             Id = id,
                             Name = name,
-                            Slug = p.CategorySlugList.ElementAtOrDefault(p.CategoryIdList.IndexOf(id)) ?? ""
+                            Slug = ParseJsonList<string>(x.Post.CategorySlugs).ElementAtOrDefault(ParseJsonList<Guid>(x.Post.CategoryIds).IndexOf(id)) ?? ""
                         }).ToList(),
-                        Tags = p.TagList,
-                        RelevanceScore = 1.0f, // Will be calculated by vector distance
+                        Tags = ParseJsonList<string>(x.Post.Tags),
+                        RelevanceScore = (float)x.CombinedScore,
                         MatchType = SearchMatchType.Semantic
                     })
-                    .ToListAsync(cancellationToken);
+                    .ToList();
 
                 return results;
             }
@@ -438,55 +482,107 @@ namespace SmartPathBackend.Services
             try
             {
                 // Generate embedding for the search query
-                var queryEmbedding = await _embedderService.EmbedOneAsync(searchQuery);
-                if (queryEmbedding == null || queryEmbedding.Length == 0)
+                var queryEmbeddingArray = await _embedderService.EmbedOneAsync(searchQuery);
+                if (queryEmbeddingArray == null || queryEmbeddingArray.Length == 0)
                 {
                     _logger.LogWarning("Failed to generate embedding for query: {Query}", searchQuery);
                     return new List<StudyMaterialSearchResultDTO>();
                 }
 
-                // For now, perform basic text search as semantic search placeholder
-                // TODO: Implement proper vector similarity search with Npgsql vector support
-                var results = await query
-                    .Where(m => m.Embedding != null &&
-                               (EF.Functions.ILike(m.Title, $"%{searchQuery}%") ||
-                                EF.Functions.ILike(m.Description, $"%{searchQuery}%")))
-                    .Take(20) // Get top 20 semantic matches
+                var queryEmbedding = new Vector(queryEmbeddingArray);
+
+                // Enhanced semantic search using embedding-based approach
+                var searchLower = searchQuery.ToLowerInvariant();
+
+                // Get all materials with embeddings first, then perform semantic matching in memory
+                var candidates = await query
+                    .Where(m => m.Embedding != null)
+                    .Take(100) // Get top 100 candidates to avoid memory issues
+                    .Select(m => new
+                    {
+                        m.StudyMaterialId,
+                        m.Title,
+                        m.Description,
+                        m.Summary,
+                        m.ResourceType,
+                        m.Url,
+                        m.DownloadUrl,
+                        m.ViewCount,
+                        m.DownloadCount,
+                        m.AverageRating,
+                        m.ReviewCount,
+                        m.CreatedAt,
+                        m.UpdatedAt,
+                        m.UploaderId,
+                        m.UploaderName,
+                        m.UploaderUsername,
+                        m.UploaderAvatar,
+                        m.CategoryId,
+                        m.CategoryName,
+                        m.CategoryPath,
+                        m.Tags,
+                        m.IsApproved,
+                        m.AiConfidence,
+                        Embedding = m.Embedding!
+                    })
+                    .ToListAsync(cancellationToken);
+
+                // Calculate semantic similarity scores using actual embeddings
+                var results = candidates
+                    .Select(m => new
+                    {
+                        Material = m,
+                        SimilarityScore = CalculateVectorSimilarity(queryEmbeddingArray, m.Embedding),
+                        TextSimilarity = CalculateTextSemanticSimilarity(searchLower,
+                            m.Title.ToLowerInvariant() + " " +
+                            m.Description.ToLowerInvariant() + " " +
+                            m.Summary.ToLowerInvariant())
+                    })
+                    .Select(x => new
+                    {
+                        x.Material,
+                        // Combine vector similarity and text similarity
+                        CombinedScore = (x.SimilarityScore * 0.7) + (x.TextSimilarity * 0.3)
+                    })
+                    .Where(x => x.CombinedScore > 0.1) // Filter out very low similarity
+                    .OrderByDescending(x => x.CombinedScore)
+                    .ThenByDescending(x => x.Material.AverageRating)
+                    .Take(20)
                     .Select(m => new StudyMaterialSearchResultDTO
                     {
-                        Id = m.StudyMaterialId,
-                        Title = m.Title,
-                        Description = m.Description,
-                        Summary = m.Summary,
-                        Type = m.ResourceType.ToString(),
-                        Url = m.Url,
-                        DownloadUrl = m.DownloadUrl,
-                        ViewCount = m.ViewCount,
-                        DownloadCount = m.DownloadCount,
-                        AverageRating = m.AverageRating,
-                        ReviewCount = m.ReviewCount,
-                        CreatedAt = m.CreatedAt,
-                        UpdatedAt = m.UpdatedAt,
+                        Id = m.Material.StudyMaterialId,
+                        Title = m.Material.Title,
+                        Description = m.Material.Description,
+                        Summary = m.Material.Summary,
+                        Type = m.Material.ResourceType.ToString(),
+                        Url = m.Material.Url,
+                        DownloadUrl = m.Material.DownloadUrl,
+                        ViewCount = m.Material.ViewCount,
+                        DownloadCount = m.Material.DownloadCount,
+                        AverageRating = m.Material.AverageRating,
+                        ReviewCount = m.Material.ReviewCount,
+                        CreatedAt = m.Material.CreatedAt,
+                        UpdatedAt = m.Material.UpdatedAt,
                         Uploader = new AuthorDTO
                         {
-                            Id = m.UploaderId,
-                            Username = m.UploaderUsername,
-                            DisplayName = m.UploaderName,
-                            Avatar = m.UploaderAvatar
+                            Id = m.Material.UploaderId,
+                            Username = m.Material.UploaderUsername,
+                            DisplayName = m.Material.UploaderName,
+                            Avatar = m.Material.UploaderAvatar
                         },
                         Category = new MaterialCategoryDTO
                         {
-                            Id = m.CategoryId,
-                            Name = m.CategoryName,
-                            Path = m.CategoryPath
+                            Id = m.Material.CategoryId,
+                            Name = m.Material.CategoryName,
+                            Path = m.Material.CategoryPath
                         },
-                        Tags = m.TagList,
-                        RelevanceScore = 1.0f, // Will be calculated by vector distance
+                        Tags = ParseJsonList<string>(m.Material.Tags),
+                        RelevanceScore = (float)m.CombinedScore,
                         MatchType = SearchMatchType.Semantic,
-                        IsApproved = m.IsApproved,
-                        AiConfidence = m.AiConfidence
+                        IsApproved = m.Material.IsApproved,
+                        AiConfidence = m.Material.AiConfidence
                     })
-                    .ToListAsync(cancellationToken);
+                    .ToList();
 
                 return results;
             }
@@ -828,7 +924,7 @@ namespace SmartPathBackend.Services
                 var tags = ExtractTagsFromContent(post.Content);
                 searchIndex.Tags = JsonSerializer.Serialize(tags);
 
-                searchIndex.Embedding = embedding;
+                searchIndex.Embedding = embedding != null ? new Vector(embedding) : null;
                 searchIndex.LastIndexedAt = DateTime.UtcNow;
                 searchIndex.Version++;
 
@@ -897,7 +993,7 @@ namespace SmartPathBackend.Services
                 searchIndex.AiConfidence = (float)(material.AiConfidence ?? 0);
                 searchIndex.AiReason = material.AiReason;
 
-                searchIndex.Embedding = embedding;
+                searchIndex.Embedding = embedding != null ? new Vector(embedding) : null;
                 searchIndex.LastIndexedAt = DateTime.UtcNow;
                 searchIndex.Version++;
 
@@ -961,6 +1057,65 @@ namespace SmartPathBackend.Services
             }
 
             return tags.Distinct().ToList();
+        }
+
+        private List<T> ParseJsonList<T>(string json)
+        {
+            if (string.IsNullOrEmpty(json))
+                return new List<T>();
+
+            try
+            {
+                return JsonSerializer.Deserialize<List<T>>(json) ?? new List<T>();
+            }
+            catch
+            {
+                return new List<T>();
+            }
+        }
+
+        private double CalculateTextSemanticSimilarity(string query, string content)
+        {
+            // Simple text similarity based on Jaccard similarity
+            var queryWords = query.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+            var contentWords = content.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+
+            if (queryWords.Count == 0 || contentWords.Count == 0)
+                return 0.0;
+
+            var intersection = queryWords.Intersect(contentWords).Count();
+            var union = queryWords.Union(contentWords).Count();
+
+            return intersection / (double)union;
+        }
+
+        private double CalculateVectorSimilarity(float[] queryEmbedding, Vector documentEmbedding)
+        {
+            if (queryEmbedding == null || documentEmbedding == null)
+                return 0.0;
+
+            // Convert Vector to float array
+            var docEmbedding = documentEmbedding.ToArray();
+
+            if (queryEmbedding.Length != docEmbedding.Length)
+                return 0.0;
+
+            // Calculate cosine similarity
+            double dotProduct = 0.0;
+            double queryMagnitude = 0.0;
+            double docMagnitude = 0.0;
+
+            for (int i = 0; i < queryEmbedding.Length; i++)
+            {
+                dotProduct += queryEmbedding[i] * docEmbedding[i];
+                queryMagnitude += queryEmbedding[i] * queryEmbedding[i];
+                docMagnitude += docEmbedding[i] * docEmbedding[i];
+            }
+
+            if (queryMagnitude == 0 || docMagnitude == 0)
+                return 0.0;
+
+            return dotProduct / (Math.Sqrt(queryMagnitude) * Math.Sqrt(docMagnitude));
         }
     }
 }

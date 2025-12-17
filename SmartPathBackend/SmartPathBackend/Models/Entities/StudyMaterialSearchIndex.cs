@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SmartPathBackend.Models.Enums;
+using Pgvector;
 
 namespace SmartPathBackend.Models.Entities
 {
@@ -65,8 +66,7 @@ namespace SmartPathBackend.Models.Entities
 
         public string? AiReason { get; set; }
 
-        [NotMapped]
-        public float[]? Embedding { get; set; }
+        public Vector? Embedding { get; set; }
 
         public DateTime LastIndexedAt { get; set; }
 

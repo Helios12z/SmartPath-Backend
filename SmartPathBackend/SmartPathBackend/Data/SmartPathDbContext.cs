@@ -253,7 +253,8 @@ namespace SmartPathBackend.Data
                 e.HasIndex(x => new { x.CreatedAt, x.IsQuestion });
                 e.HasIndex(x => x.AuthorId);
 
-                // Embedding property is marked with [NotMapped] attribute
+                // Configure embedding column
+                e.Property(x => x.Embedding).HasColumnType("vector(1024)");
 
                 e.HasIndex(x => x.Title);
                 e.HasIndex(x => x.Content);
@@ -266,7 +267,8 @@ namespace SmartPathBackend.Data
                 e.HasIndex(x => new { x.CategoryId, x.IsApproved, x.CreatedAt });
                 e.HasIndex(x => x.UploaderId);
 
-                // Embedding property is marked with [NotMapped] attribute
+                // Configure embedding column
+                e.Property(x => x.Embedding).HasColumnType("vector(1024)");
 
                 e.HasIndex(x => x.Title);
                 e.HasIndex(x => x.Description);

@@ -7,8 +7,7 @@ using SmartPathBackend.Models.Enums;
 namespace SmartPathBackend.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
-    [Authorize]
+    [Route("api/search")]
     public class SearchController : ControllerBase
     {
         private readonly ISearchService _searchService;
@@ -18,11 +17,24 @@ namespace SmartPathBackend.Controllers
             _searchService = searchService;
         }
 
-        [HttpPost("search")]
+        [HttpPost]
+        [AllowAnonymous]
         public async Task<ActionResult<SearchResultDTO>> Search([FromBody] SearchRequestDTO request)
         {
             try
             {
+                // Validate request
+                if (string.IsNullOrWhiteSpace(request.Query))
+                {
+                    return BadRequest(new { error = "Query is required" });
+                }
+
+                // Set defaults if not provided
+                request.Page = request.Page <= 0 ? 1 : request.Page;
+                request.PageSize = request.PageSize <= 0 ? 20 : Math.Min(request.PageSize, 100);
+                request.SortBy = string.IsNullOrEmpty(request.SortBy) ? "relevance" : request.SortBy;
+                request.SortOrder = string.IsNullOrEmpty(request.SortOrder) ? "desc" : request.SortOrder;
+
                 var result = await _searchService.SearchAsync(request);
                 return Ok(result);
             }
@@ -32,7 +44,9 @@ namespace SmartPathBackend.Controllers
             }
         }
 
+        
         [HttpGet("posts/suggestions")]
+        [AllowAnonymous]
         public async Task<ActionResult<List<PostSuggestionDTO>>> GetPostSuggestions([FromQuery] string q, [FromQuery] int limit = 5)
         {
             try
@@ -47,6 +61,7 @@ namespace SmartPathBackend.Controllers
         }
 
         [HttpGet("materials/suggestions")]
+        [AllowAnonymous]
         public async Task<ActionResult<List<StudyMaterialSuggestionDTO>>> GetStudyMaterialSuggestions([FromQuery] string q, [FromQuery] int limit = 5)
         {
             try
@@ -102,112 +117,6 @@ namespace SmartPathBackend.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = "Failed to get search analytics", message = ex.Message });
-            }
-        }
-
-        [HttpGet("quick")]
-        [AllowAnonymous]
-        public async Task<ActionResult<SearchResultDTO>> QuickSearch([FromQuery] string q, [FromQuery] SearchType type = SearchType.All, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
-        {
-            try
-            {
-                var request = new SearchRequestDTO
-                {
-                    Query = q,
-                    SearchType = type,
-                    IncludeKeywordSearch = true,
-                    IncludeSemanticSearch = false, // Quick search is keyword only for performance
-                    Page = page,
-                    PageSize = pageSize,
-                    SortBy = "relevance",
-                    SortOrder = "desc"
-                };
-
-                var result = await _searchService.SearchAsync(request);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "Quick search failed", message = ex.Message });
-            }
-        }
-
-        [HttpGet("semantic")]
-        [AllowAnonymous]
-        public async Task<ActionResult<SearchResultDTO>> SemanticSearch([FromQuery] string q, [FromQuery] SearchType type = SearchType.All, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(q))
-                {
-                    return BadRequest(new { error = "Query is required for semantic search" });
-                }
-
-                var request = new SearchRequestDTO
-                {
-                    Query = q,
-                    SearchType = type,
-                    IncludeKeywordSearch = false, // Semantic search only
-                    IncludeSemanticSearch = true,
-                    Page = page,
-                    PageSize = pageSize,
-                    SortBy = "relevance",
-                    SortOrder = "desc"
-                };
-
-                var result = await _searchService.SearchAsync(request);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "Semantic search failed", message = ex.Message });
-            }
-        }
-
-        [HttpGet("advanced")]
-        [AllowAnonymous]
-        public async Task<ActionResult<SearchResultDTO>> AdvancedSearch(
-            [FromQuery] string q = "",
-            [FromQuery] SearchType type = SearchType.All,
-            [FromQuery] List<Guid> categoryIds = null,
-            [FromQuery] List<Guid> materialCategoryIds = null,
-            [FromQuery] bool? isQuestion = null,
-            [FromQuery] bool includeSemantic = true,
-            [FromQuery] bool includeKeyword = true,
-            [FromQuery] string sortBy = "relevance",
-            [FromQuery] string sortOrder = "desc",
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 20,
-            [FromQuery] DateTime? fromDate = null,
-            [FromQuery] DateTime? toDate = null,
-            [FromQuery] List<string> tags = null)
-        {
-            try
-            {
-                var request = new SearchRequestDTO
-                {
-                    Query = q,
-                    SearchType = type,
-                    CategoryIds = categoryIds ?? new List<Guid>(),
-                    MaterialCategoryIds = materialCategoryIds ?? new List<Guid>(),
-                    IsQuestion = isQuestion,
-                    IncludeSemanticSearch = includeSemantic,
-                    IncludeKeywordSearch = includeKeyword,
-                    SortBy = sortBy,
-                    SortOrder = sortOrder,
-                    Page = page,
-                    PageSize = pageSize,
-                    FromDate = fromDate,
-                    ToDate = toDate,
-                    Tags = tags ?? new List<string>()
-                };
-
-                var result = await _searchService.SearchAsync(request);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "Advanced search failed", message = ex.Message });
             }
         }
     }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using SmartPathBackend.Data;
 namespace SmartPathBackend.Migrations
 {
     [DbContext(typeof(SmartPathDbContext))]
-    partial class SmartPathDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251216225916_AddVectorColumnsToSearchIndexes")]
+    partial class AddVectorColumnsToSearchIndexes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -532,9 +535,6 @@ namespace SmartPathBackend.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Vector>("Embedding")
-                        .HasColumnType("vector(1024)");
-
                     b.Property<bool>("IsQuestion")
                         .HasColumnType("boolean");
 
@@ -982,9 +982,6 @@ namespace SmartPathBackend.Migrations
                     b.Property<string>("DownloadUrl")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<Vector>("Embedding")
-                        .HasColumnType("vector(1024)");
 
                     b.Property<bool>("IsApproved")
                         .HasColumnType("boolean");
