@@ -398,17 +398,157 @@ namespace SmartPathBackend.Data
                 "Gesture recognition implementation", "Voice interface design", "Accessibility guidelines", "WCAG compliance checklist", "Inclusive design principles"
             };
 
-            // Original 10 posts
-            posts.Add(new Post { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), AuthorId = userIds[0], Title = titles[0], Content = contents[0], IsQuestion = false, CreatedAt = T0, UpdatedAt = T0, IsDeletedAt = null });
-            posts.Add(new Post { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), AuthorId = userIds[1], Title = titles[1], Content = contents[1], IsQuestion = true, CreatedAt = T0, UpdatedAt = T0, IsDeletedAt = null });
-            posts.Add(new Post { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3"), AuthorId = userIds[2], Title = titles[2], Content = contents[2], IsQuestion = false, CreatedAt = T0, UpdatedAt = T0, IsDeletedAt = null });
-            posts.Add(new Post { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4"), AuthorId = userIds[3], Title = titles[3], Content = contents[3], IsQuestion = true, CreatedAt = T0, UpdatedAt = T0, IsDeletedAt = null });
-            posts.Add(new Post { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5"), AuthorId = userIds[4], Title = titles[4], Content = contents[4], IsQuestion = false, CreatedAt = T0, UpdatedAt = T0, IsDeletedAt = null });
-            posts.Add(new Post { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6"), AuthorId = userIds[5], Title = titles[5], Content = contents[5], IsQuestion = true, CreatedAt = T0, UpdatedAt = T0, IsDeletedAt = null });
-            posts.Add(new Post { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7"), AuthorId = userIds[6], Title = titles[6], Content = contents[6], IsQuestion = false, CreatedAt = T0, UpdatedAt = T0, IsDeletedAt = null });
-            posts.Add(new Post { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8"), AuthorId = userIds[7], Title = titles[7], Content = contents[7], IsQuestion = true, CreatedAt = T0, UpdatedAt = T0, IsDeletedAt = null });
-            posts.Add(new Post { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9"), AuthorId = userIds[8], Title = titles[8], Content = contents[8], IsQuestion = false, CreatedAt = T0, UpdatedAt = T0, IsDeletedAt = null });
-            posts.Add(new Post { Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa10"), AuthorId = userIds[9], Title = titles[9], Content = contents[9], IsQuestion = true, CreatedAt = T0, UpdatedAt = T0, IsDeletedAt = null });
+            // Original 10 posts with AI review data
+            posts.Add(new Post {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"),
+                AuthorId = userIds[0],
+                Title = titles[0],
+                Content = contents[0],
+                IsQuestion = false,
+                CreatedAt = T0,
+                UpdatedAt = T0,
+                IsDeletedAt = null,
+                Status = Status.Accepted,
+                AiConfidence = 0.95,
+                AiCategoryMatch = true,
+                AiReason = "High quality welcome post with clear content",
+                ReviewedAt = T0.AddMinutes(5)
+            });
+            posts.Add(new Post {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"),
+                AuthorId = userIds[1],
+                Title = titles[1],
+                Content = contents[1],
+                IsQuestion = true,
+                CreatedAt = T0,
+                UpdatedAt = T0,
+                IsDeletedAt = null,
+                Status = Status.Accepted,
+                AiConfidence = 0.88,
+                AiCategoryMatch = true,
+                AiReason = "Good question with specific request for resources",
+                ReviewedAt = T0.AddMinutes(5)
+            });
+            posts.Add(new Post {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3"),
+                AuthorId = userIds[2],
+                Title = titles[2],
+                Content = contents[2],
+                IsQuestion = false,
+                CreatedAt = T0,
+                UpdatedAt = T0,
+                IsDeletedAt = null,
+                Status = Status.Accepted,
+                AiConfidence = 0.92,
+                AiCategoryMatch = true,
+                AiReason = "Helpful tips shared on linear algebra",
+                ReviewedAt = T0.AddMinutes(5)
+            });
+            posts.Add(new Post {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4"),
+                AuthorId = userIds[3],
+                Title = titles[3],
+                Content = contents[3],
+                IsQuestion = true,
+                CreatedAt = T0,
+                UpdatedAt = T0,
+                IsDeletedAt = null,
+                Status = Status.Accepted,
+                AiConfidence = 0.85,
+                AiCategoryMatch = true,
+                AiReason = "Relevant database normalization question",
+                ReviewedAt = T0.AddMinutes(5)
+            });
+            posts.Add(new Post {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5"),
+                AuthorId = userIds[4],
+                Title = titles[4],
+                Content = contents[4],
+                IsQuestion = false,
+                CreatedAt = T0,
+                UpdatedAt = T0,
+                IsDeletedAt = null,
+                Status = Status.Accepted,
+                AiConfidence = 0.90,
+                AiCategoryMatch = true,
+                AiReason = "Well-explained Git workflow comparison",
+                ReviewedAt = T0.AddMinutes(5)
+            });
+            posts.Add(new Post {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6"),
+                AuthorId = userIds[5],
+                Title = titles[5],
+                Content = contents[5],
+                IsQuestion = true,
+                CreatedAt = T0,
+                UpdatedAt = T0,
+                IsDeletedAt = null,
+                Status = Status.Accepted,
+                AiConfidence = 0.87,
+                AiCategoryMatch = true,
+                AiReason = "Common programming question with good context",
+                ReviewedAt = T0.AddMinutes(5)
+            });
+            posts.Add(new Post {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7"),
+                AuthorId = userIds[6],
+                Title = titles[6],
+                Content = contents[6],
+                IsQuestion = false,
+                CreatedAt = T0,
+                UpdatedAt = T0,
+                IsDeletedAt = null,
+                Status = Status.Accepted,
+                AiConfidence = 0.93,
+                AiCategoryMatch = true,
+                AiReason = "Educational content with clear graph examples",
+                ReviewedAt = T0.AddMinutes(5)
+            });
+            posts.Add(new Post {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8"),
+                AuthorId = userIds[7],
+                Title = titles[7],
+                Content = contents[7],
+                IsQuestion = true,
+                CreatedAt = T0,
+                UpdatedAt = T0,
+                IsDeletedAt = null,
+                Status = Status.Accepted,
+                AiConfidence = 0.89,
+                AiCategoryMatch = true,
+                AiReason = "Good comparison question about UI frameworks",
+                ReviewedAt = T0.AddMinutes(5)
+            });
+            posts.Add(new Post {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9"),
+                AuthorId = userIds[8],
+                Title = titles[8],
+                Content = contents[8],
+                IsQuestion = false,
+                CreatedAt = T0,
+                UpdatedAt = T0,
+                IsDeletedAt = null,
+                Status = Status.Accepted,
+                AiConfidence = 0.91,
+                AiCategoryMatch = true,
+                AiReason = "Informative JWT refresh implementation guide",
+                ReviewedAt = T0.AddMinutes(5)
+            });
+            posts.Add(new Post {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa10"),
+                AuthorId = userIds[9],
+                Title = titles[9],
+                Content = contents[9],
+                IsQuestion = true,
+                CreatedAt = T0,
+                UpdatedAt = T0,
+                IsDeletedAt = null,
+                Status = Status.Accepted,
+                AiConfidence = 0.86,
+                AiCategoryMatch = true,
+                AiReason = "Relevant question about unit testing practices",
+                ReviewedAt = T0.AddMinutes(5)
+            });
 
             // Add 90 more posts for pagination testing
             var random = new Random(42); // Fixed seed for reproducible results
@@ -419,6 +559,12 @@ namespace SmartPathBackend.Data
                 var userIndex = random.Next(0, userIds.Length);
                 var isQuestion = random.Next(0, 3) == 0; // 1/3 chance of being a question
 
+                // Random AI review values
+                var confidence = random.NextDouble() * 0.5 + 0.5; // 0.5 to 1.0
+                var categoryMatch = random.NextDouble() > 0.2; // 80% chance of matching category
+                var status = confidence >= 0.7 && categoryMatch ? Status.Accepted :
+                           confidence >= 0.4 && categoryMatch ? Status.Pending : Status.Rejected;
+
                 posts.Add(new Post
                 {
                     Id = Guid.NewGuid(),
@@ -428,7 +574,13 @@ namespace SmartPathBackend.Data
                     IsQuestion = isQuestion,
                     CreatedAt = T0.AddMinutes(random.Next(0, 10080)), // Random time within past week
                     UpdatedAt = T0.AddMinutes(random.Next(0, 10080)),
-                    IsDeletedAt = null
+                    IsDeletedAt = null,
+                    Status = status,
+                    AiConfidence = confidence,
+                    AiCategoryMatch = categoryMatch,
+                    AiReason = status == Status.Accepted ? "Good quality content" :
+                              status == Status.Pending ? "Needs manual review" : "Content requires improvement",
+                    ReviewedAt = T0.AddMinutes(random.Next(1, 60))
                 });
             }
 

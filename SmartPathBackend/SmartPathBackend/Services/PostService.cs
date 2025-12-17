@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SmartPathBackend.Interfaces;
 using SmartPathBackend.Interfaces.Services;
 using SmartPathBackend.Models.DTOs;
@@ -11,10 +12,17 @@ namespace SmartPathBackend.Services
     public class PostService : IPostService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IPostAiReviewer _aiReviewer;
+        private readonly ILogger<PostService> _logger;
 
-        public PostService(IUnitOfWork unitOfWork)
+        public PostService(
+            IUnitOfWork unitOfWork,
+            IPostAiReviewer aiReviewer,
+            ILogger<PostService> logger)
         {
             _unitOfWork = unitOfWork;
+            _aiReviewer = aiReviewer;
+            _logger = logger;
         }
 
         private static IQueryable<PostResponseDto> ProjectToDto(IQueryable<Post> query, Guid? currentUserId)
@@ -49,6 +57,14 @@ namespace SmartPathBackend.Services
                 IsNegativeReacted = currentUserId.HasValue
                     ? p.Reactions!.Any(r => r.UserId == currentUserId && !r.IsPositive)
                     : (bool?)null,
+
+                // AI Review fields
+                Status = p.Status,
+                RejectReason = p.RejectReason,
+                AiConfidence = p.AiConfidence,
+                AiCategoryMatch = p.AiCategoryMatch,
+                AiReason = p.AiReason,
+                ReviewedAt = p.ReviewedAt
             });
         }
 
@@ -60,7 +76,7 @@ namespace SmartPathBackend.Services
 
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
-                        .Where(p => p.IsDeletedAt == null)
+                        .Where(p => p.IsDeletedAt == null && p.Status == Status.Accepted) // Only show accepted posts by default
                         .Include(p => p.Author)
                         .Include(p => p.Reactions)
                         .Include(p => p.Comments)
@@ -80,7 +96,7 @@ namespace SmartPathBackend.Services
         {
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
-                        .Where(p => p.Id == id && p.IsDeletedAt == null)
+                        .Where(p => p.Id == id && p.IsDeletedAt == null && p.Status == Status.Accepted)
                         .Include(p => p.Author)
                         .Include(p => p.Reactions)
                         .Include(p => p.Comments)
@@ -97,7 +113,7 @@ namespace SmartPathBackend.Services
 
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
-                        .Where(p => p.AuthorId == userId && p.IsDeletedAt == null)
+                        .Where(p => p.AuthorId == userId && p.IsDeletedAt == null && p.Status == Status.Accepted)
                         .Include(p => p.Author)
                         .Include(p => p.Reactions)
                         .Include(p => p.Comments)
@@ -116,14 +132,123 @@ namespace SmartPathBackend.Services
         public async Task<PostResponseDto> CreateAsync(Guid authorId, PostRequestDto request)
         {
             var now = DateTime.UtcNow;
+            var tempPostId = Guid.NewGuid();
 
-            var post = new Post
+            // Create a temporary post object for AI review (not saved to database yet)
+            var tempPost = new Post
             {
-                Id = Guid.NewGuid(),
+                Id = tempPostId,
                 AuthorId = authorId,
                 Title = request.Title,
                 Content = request.Content,
                 IsQuestion = request.IsQuestion,
+                Status = Status.Pending,
+                CreatedAt = now
+            };
+
+            if (request.CategoryIds is { Count: > 0 })
+            {
+                tempPost.CategoryPosts = request.CategoryIds.Select(cid => new CategoryPost
+                {
+                    PostId = tempPostId,
+                    CategoryId = cid
+                }).ToList();
+            }
+
+            // Load categories for AI review
+            var categories = await _unitOfWork.Categories.Query()
+                .Where(c => request.CategoryIds != null && request.CategoryIds.Contains(c.Id))
+                .ToListAsync();
+
+            // Perform AI review before saving to database
+            PostAiReviewResult aiReview;
+            try
+            {
+                aiReview = await _aiReviewer.ReviewAsync(tempPost, categories, CancellationToken.None);
+                _logger.LogInformation("AI review completed for unsaved post. IsAppropriate: {IsAppropriate}, Confidence: {Confidence:F2}",
+                    aiReview.isAppropriate, aiReview.confidence);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "AI review failed for post creation");
+                // Default to pending if AI fails
+                aiReview = new PostAiReviewResult(
+                    categoryMatch: true,
+                    isAppropriate: true,
+                    confidence: 0.5,
+                    reason: "AI review failed - pending manual review",
+                    suggestedCategoryId: null
+                );
+            }
+
+            // Determine status based on AI review
+            var status = Status.Pending;
+            var rejectReason = (string?)null;
+
+            if (aiReview.isAppropriate && aiReview.confidence >= 0.7)
+            {
+                status = Status.Accepted;
+            }
+            else if (aiReview.isAppropriate && aiReview.confidence >= 0.4)
+            {
+                status = Status.Pending; // Needs manual review
+            }
+            else
+            {
+                status = Status.Rejected;
+                rejectReason = $"AI rejected: {aiReview.reason}";
+            }
+
+            // If rejected, create response DTO without saving to database
+            if (status == Status.Rejected)
+            {
+                _logger.LogInformation("Post rejected by AI, not saving to database. Reason: {Reason}", rejectReason);
+
+                // Get author info for response
+                var author = await _unitOfWork.Users.GetByIdAsync(authorId);
+
+                // Create response DTO for rejected post
+                return new PostResponseDto
+                {
+                    Id = tempPostId,
+                    Title = tempPost.Title,
+                    Content = tempPost.Content,
+                    IsQuestion = tempPost.IsQuestion,
+                    CreatedAt = now,
+                    UpdatedAt = null,
+                    AuthorUsername = author?.Username ?? "Unknown",
+                    AuthorId = authorId,
+                    AuthorPoint = author?.Point ?? 0,
+                    AuthorAvatarUrl = author?.AvatarUrl,
+                    PositiveReactionCount = 0,
+                    NegativeReactionCount = 0,
+                    CommentCount = 0,
+                    Categories = categories.Select(c => c.Name).ToList(),
+                    IsPositiveReacted = null,
+                    IsNegativeReacted = null,
+                    Status = status,
+                    RejectReason = rejectReason,
+                    AiConfidence = aiReview.confidence,
+                    AiCategoryMatch = aiReview.categoryMatch,
+                    AiReason = aiReview.reason,
+                    ReviewedAt = now
+                };
+            }
+
+            // If accepted or pending, save to database
+            var post = new Post
+            {
+                Id = Guid.NewGuid(), // Generate new ID for actual post
+                AuthorId = authorId,
+                Title = request.Title,
+                Content = request.Content,
+                IsQuestion = request.IsQuestion,
+                Status = status,
+                AiConfidence = aiReview.confidence,
+                AiCategoryMatch = aiReview.categoryMatch,
+                AiReason = aiReview.reason,
+                RejectReason = rejectReason,
+                ReviewedAt = now,
                 CreatedAt = now
             };
 
@@ -139,6 +264,9 @@ namespace SmartPathBackend.Services
             await _unitOfWork.Posts.AddAsync(post);
             await _unitOfWork.SaveChangesAsync();
 
+            _logger.LogInformation("Post {PostId} saved to database with status: {Status}", post.Id, post.Status);
+
+            // Re-load post with all relationships for response
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
                         .Where(p => p.Id == post.Id)
