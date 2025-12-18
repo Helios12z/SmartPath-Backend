@@ -22,25 +22,15 @@ namespace SmartPathBackend.Services
             _notifications = notifications;
         }
 
-        public async Task<(IEnumerable<CommentResponseDto> Items, int Total)> GetByPostAsync(Guid postId, Guid? currentUserId, int page = 1, int pageSize = 20)
+        public async Task<IEnumerable<CommentResponseDto>> GetByPostAsync(Guid postId, Guid? currentUserId)
         {
-            // Ensure valid page parameters
-            page = Math.Max(1, page);
-            pageSize = Math.Min(Math.Max(1, pageSize), 100); // Max 100 items per page
-
-            // Get top-level comments only (no parent) for pagination
-            var topLevelQuery = _unitOfWork.Comments.Query()
+            // Get ALL top-level comments (no parent)
+            var topLevelComments = await _unitOfWork.Comments.Query()
                 .AsNoTracking()
                 .Where(c => c.PostId == postId && c.ParentCommentId == null)
                 .Include(c => c.Author)
-                .Include(c => c.Reactions);
-
-            var total = await topLevelQuery.CountAsync();
-
-            var topLevelComments = await topLevelQuery
+                .Include(c => c.Reactions)
                 .OrderBy(c => c.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
                 .ToListAsync();
 
             // Get ALL replies for this post (not paginated) - include all nested replies
@@ -101,7 +91,7 @@ namespace SmartPathBackend.Services
                 items.AddRange(BuildCommentTree(topLevelComment));
             }
 
-            return (items, total);
+            return items;
         }
 
         public async Task<CommentResponseDto> CreateAsync(Guid authorId, CommentRequestDto request)

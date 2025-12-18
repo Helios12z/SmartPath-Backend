@@ -23,19 +23,12 @@ namespace SmartPathBackend.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetAll()
         {
             var userId = User.GetUserIdOrNull();
-            var (items, total) = await _posts.GetAllAsync(userId, page, pageSize);
+            var items = await _posts.GetAllAsync(userId);
 
-            return Ok(new
-            {
-                items = items,
-                total = total,
-                currentPage = page,
-                pageSize = pageSize,
-                totalPages = (int)Math.Ceiling((double)total / pageSize)
-            });
+            return Ok(items);
         }
 
         [HttpGet("{id:guid}")]
@@ -49,26 +42,19 @@ namespace SmartPathBackend.Controllers
 
         [HttpGet("by-user/{userId:guid}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetByUser(Guid userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetByUser(Guid userId)
         {
-            var (items, total) = await _posts.GetByUserAsync(userId, page, pageSize);
+            var items = await _posts.GetByUserAsync(userId);
 
-            return Ok(new
-            {
-                items = items,
-                total = total,
-                currentPage = page,
-                pageSize = pageSize,
-                totalPages = (int)Math.Ceiling((double)total / pageSize)
-            });
+            return Ok(items);
         }
 
         [HttpGet("recommendations")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetRecommendations([FromQuery] int? limit)
+        public async Task<IActionResult> GetRecommendations()
         {
             var userId = User.GetUserIdOrNull();
-            var recommendations = await _posts.GetRecommendationsAsync(userId, limit);
+            var recommendations = await _posts.GetRecommendationsAsync(userId);
             return Ok(recommendations);
         }
 

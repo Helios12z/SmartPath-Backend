@@ -71,12 +71,8 @@ namespace SmartPathBackend.Services
             });
         }
 
-        public async Task<(IEnumerable<PostResponseDto> Items, int Total)> GetAllAsync(Guid? currentUserId, int page = 1, int pageSize = 20)
+        public async Task<IEnumerable<PostResponseDto>> GetAllAsync(Guid? currentUserId)
         {
-            // Ensure valid page parameters
-            page = Math.Max(1, page);
-            pageSize = Math.Min(Math.Max(1, pageSize), 100); // Max 100 items per page
-
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
                         .Where(p => p.IsDeletedAt == null && p.Status == Status.Accepted) // Only show accepted posts by default
@@ -85,14 +81,11 @@ namespace SmartPathBackend.Services
                         .Include(p => p.Comments)
                         .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
 
-            var total = await q.CountAsync();
             var items = await ProjectToDto(q, currentUserId)
                 .OrderByDescending(p => p.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
                 .ToListAsync();
 
-            return (items, total);
+            return items;
         }
 
         public async Task<PostResponseDto?> GetByIdAsync(Guid id, Guid? currentUserId)
@@ -108,12 +101,8 @@ namespace SmartPathBackend.Services
             return await ProjectToDto(q, currentUserId).FirstOrDefaultAsync();
         }
 
-        public async Task<(IEnumerable<PostResponseDto> Items, int Total)> GetByUserAsync(Guid userId, int page = 1, int pageSize = 20)
+        public async Task<IEnumerable<PostResponseDto>> GetByUserAsync(Guid userId)
         {
-            // Ensure valid page parameters
-            page = Math.Max(1, page);
-            pageSize = Math.Min(Math.Max(1, pageSize), 100); // Max 100 items per page
-
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
                         .Where(p => p.AuthorId == userId && p.IsDeletedAt == null && p.Status == Status.Accepted)
@@ -122,14 +111,11 @@ namespace SmartPathBackend.Services
                         .Include(p => p.Comments)
                         .Include(p => p.CategoryPosts)!.ThenInclude(cp => cp.Category);
 
-            var total = await q.CountAsync();
             var items = await ProjectToDto(q, userId)
                 .OrderByDescending(p => p.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
                 .ToListAsync();
 
-            return (items, total);
+            return items;
         }
 
         public async Task<PostResponseDto> CreateAsync(Guid authorId, PostRequestDto request)
@@ -359,10 +345,8 @@ namespace SmartPathBackend.Services
             return true;
         }
 
-        public async Task<IEnumerable<PostResponseDto>> GetRecommendationsAsync(Guid? currentUserId, int? limit = null)
+        public async Task<IEnumerable<PostResponseDto>> GetRecommendationsAsync(Guid? currentUserId)
         {
-            var limitToUse = Math.Min(limit ?? 20, 50); // Default to 20, max 50
-
             var q = _unitOfWork.Posts.Query()
                         .AsNoTracking()
                         .Where(p => p.IsDeletedAt == null && p.Status == Status.Accepted)
@@ -404,7 +388,6 @@ namespace SmartPathBackend.Services
             var recommendations = CalculateRecommendationScores(posts, currentUserId, followedUsers, mutualFriends)
                 .Where(p => p.Score > 0.1) // Lowered minimum threshold for users with no friends
                 .OrderByDescending(p => p.Score)
-                .Take(limitToUse)
                 .Select(p => p.Dto);
 
             return recommendations;

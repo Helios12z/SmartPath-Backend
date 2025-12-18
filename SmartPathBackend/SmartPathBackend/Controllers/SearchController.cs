@@ -30,8 +30,6 @@ namespace SmartPathBackend.Controllers
                 }
 
                 // Set defaults if not provided
-                request.Page = request.Page <= 0 ? 1 : request.Page;
-                request.PageSize = request.PageSize <= 0 ? 20 : Math.Min(request.PageSize, 100);
                 request.SortBy = string.IsNullOrEmpty(request.SortBy) ? "relevance" : request.SortBy;
                 request.SortOrder = string.IsNullOrEmpty(request.SortOrder) ? "desc" : request.SortOrder;
 

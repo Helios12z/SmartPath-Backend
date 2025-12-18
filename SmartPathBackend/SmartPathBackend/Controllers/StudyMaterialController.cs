@@ -20,12 +20,10 @@ namespace SmartPathBackend.Controllers
         public async Task<IActionResult> Search(
             [FromQuery] Guid? categoryId,
             [FromQuery] Status? status,
-            [FromQuery] string? q,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 20)
+            [FromQuery] string? q)
         {
-            var (items, total) = await _svc.SearchAsync(categoryId, status ?? Status.Accepted, q, page, pageSize);
-            return Ok(new { items, total, page, pageSize });
+            var items = await _svc.SearchAsync(categoryId, status ?? Status.Accepted, q);
+            return Ok(items);
         }
 
         [HttpGet("{id:guid}")]
@@ -39,11 +37,11 @@ namespace SmartPathBackend.Controllers
 
         [HttpGet("mine")]
         [Authorize]
-        public async Task<IActionResult> Mine([FromQuery] Status? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> Mine([FromQuery] Status? status)
         {
             var uid = User.GetUserIdOrThrow();
-            var (items, total) = await _svc.GetMineAsync(uid, status, page, pageSize);
-            return Ok(new { items, total, page, pageSize });
+            var items = await _svc.GetMineAsync(uid, status);
+            return Ok(items);
         }
 
         [HttpPost]
@@ -86,9 +84,9 @@ namespace SmartPathBackend.Controllers
 
         [HttpGet("{id:guid}/ratings")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetMaterialRatings(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetMaterialRatings(Guid id)
         {
-            var ratings = await _svc.GetMaterialRatingsAsync(id, page, pageSize);
+            var ratings = await _svc.GetMaterialRatingsAsync(id);
             return Ok(ratings);
         }
 

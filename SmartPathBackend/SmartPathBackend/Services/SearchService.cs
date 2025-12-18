@@ -74,13 +74,6 @@ namespace SmartPathBackend.Services
             var totalCount = await _context.PostSearchIndices.CountAsync(cancellationToken);
             _logger.LogInformation("Total PostSearchIndex records: {Count}", totalCount);
 
-            // Apply filters - temporarily disabled category filter due to EF Core translation issues
-            // TODO: Fix category filtering later by avoiding JSON deserialization in queries
-            // if (request.CategoryIds.Any())
-            // {
-            //     query = query.Where(p => p.CategoryIdList.Any(id => request.CategoryIds.Contains(id)));
-            // }
-
             if (request.IsQuestion.HasValue)
             {
                 query = query.Where(p => p.IsQuestion == request.IsQuestion.Value);
@@ -152,9 +145,8 @@ namespace SmartPathBackend.Services
             // Sort results
             results = ApplySorting(results, request.SortBy, request.SortOrder);
 
-            // Pagination
-            var skip = (request.Page - 1) * request.PageSize;
-            return results.Skip(skip).Take(request.PageSize).ToList();
+            // Return all results (no pagination)
+            return results;
         }
 
         private async Task<List<StudyMaterialSearchResultDTO>> SearchStudyMaterialsAsync(SearchRequestDTO request, CancellationToken cancellationToken)
@@ -163,6 +155,10 @@ namespace SmartPathBackend.Services
                 return new List<StudyMaterialSearchResultDTO>();
 
             var query = _context.StudyMaterialSearchIndices.AsQueryable();
+
+            // Debug: Log total StudyMaterialSearchIndex count
+            var totalCount = await _context.StudyMaterialSearchIndices.CountAsync(cancellationToken);
+            _logger.LogInformation("Total StudyMaterialSearchIndex records: {Count}", totalCount);
 
             // Only show approved materials
             query = query.Where(m => m.IsApproved);
@@ -190,7 +186,9 @@ namespace SmartPathBackend.Services
             // Keyword search
             if (request.IncludeKeywordSearch && !string.IsNullOrEmpty(request.Query))
             {
+                _logger.LogInformation("Material keyword search - Query: '{Query}'", request.Query);
                 var keywordResults = await KeywordSearchMaterialsAsync(query, request.Query, cancellationToken);
+                _logger.LogInformation("Material keyword search - Found {Count} results", keywordResults.Count);
                 results.AddRange(keywordResults);
             }
             else
@@ -250,9 +248,10 @@ namespace SmartPathBackend.Services
             // Sort results
             results = ApplyMaterialSorting(results, request.SortBy, request.SortOrder);
 
-            // Pagination
-            var skip = (request.Page - 1) * request.PageSize;
-            return results.Skip(skip).Take(request.PageSize).ToList();
+            _logger.LogInformation("Material search - Total results: {Count}", results.Count);
+
+            // Return all results (no pagination)
+            return results;
         }
 
         private static string EscapeLike(string input)
@@ -757,8 +756,6 @@ namespace SmartPathBackend.Services
                     PostResults = result.TotalPosts,
                     StudyMaterialResults = result.TotalStudyMaterials,
                     QueryTime = result.QueryTime,
-                    Page = request.Page,
-                    PageSize = request.PageSize,
                     SortBy = request.SortBy,
                     SortOrder = request.SortOrder,
                     CreatedAt = DateTime.UtcNow

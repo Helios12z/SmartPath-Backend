@@ -84,12 +84,10 @@ namespace SmartPathBackend.Controllers
         [Authorize(Roles = "Admin")]
         [HttpGet("documents")]
         public async Task<IActionResult> ListDocuments(
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 20,
             [FromQuery] string? q = null,
             CancellationToken ct = default)
         {
-            var result = await _knowledge.GetDocumentsAsync(page, pageSize, q, ct);
+            var result = await _knowledge.GetDocumentsAsync(q, ct);
             return Ok(result);
         }
 

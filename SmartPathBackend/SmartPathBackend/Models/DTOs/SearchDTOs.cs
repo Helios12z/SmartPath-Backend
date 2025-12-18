@@ -13,8 +13,6 @@ namespace SmartPathBackend.Models.DTOs
         public bool IncludeKeywordSearch { get; set; } = true;
         public string SortBy { get; set; } = "relevance"; // relevance, created, updated, views
         public string SortOrder { get; set; } = "desc"; // asc, desc
-        public int Page { get; set; } = 1;
-        public int PageSize { get; set; } = 20;
         public DateTime? FromDate { get; set; }
         public DateTime? ToDate { get; set; }
         public List<string> Tags { get; set; } = new();

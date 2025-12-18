@@ -406,11 +406,8 @@ namespace SmartPathBackend.Services
             return s;
         }
 
-        public async Task<PagedResult<KnowledgeDocumentDto>> GetDocumentsAsync(int page, int pageSize, string? q, CancellationToken ct = default)
+        public async Task<List<KnowledgeDocumentDto>> GetDocumentsAsync(string? q, CancellationToken ct = default)
         {
-            if (page <= 0) page = 1;
-            if (pageSize <= 0 || pageSize > 200) pageSize = 20;
-
             var query = _uow.Knowledges.QueryDocuments();
 
             if (!string.IsNullOrWhiteSpace(q))
@@ -420,8 +417,6 @@ namespace SmartPathBackend.Services
                     (d.Title != null && EF.Functions.ILike(d.Title, $"%{term}%")) ||
                     (d.SourceUrl != null && EF.Functions.ILike(d.SourceUrl, $"%{term}%")));
             }
-
-            var total = await query.CountAsync(ct);
 
             var items = await query
                 .OrderByDescending(d => d.CreatedAt)
@@ -434,17 +429,9 @@ namespace SmartPathBackend.Services
                     CreatedAt = d.CreatedAt,
                     ChunkCount = d.Chunks.Count
                 })
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
                 .ToListAsync(ct);
 
-            return new PagedResult<KnowledgeDocumentDto>
-            {
-                Page = page,
-                PageSize = pageSize,
-                TotalItems = total,
-                Items = items
-            };
+            return items;
         }
 
         public async Task<KnowledgeDocumentDto?> GetDocumentAsync(Guid id, CancellationToken ct = default)
