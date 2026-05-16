@@ -108,9 +108,12 @@ builder.Services.AddHttpClient("Gemini", (sp, http) =>
     http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 });
 
-builder.Services.AddHttpClient("LocalLLM", c =>
+builder.Services.AddHttpClient("LocalLLM", (sp, c) =>
 {
-    c.BaseAddress = new Uri("http://127.0.0.1:8000/v1");
+    var opt = sp.GetRequiredService<IOptions<LLMOptions>>().Value;
+    var baseUrl = opt.BaseUrl ?? "http://127.0.0.1:11434/v1";
+    if (!baseUrl.EndsWith("/")) baseUrl += "/";
+    c.BaseAddress = new Uri(baseUrl);
     c.Timeout = TimeSpan.FromMinutes(5);
     c.DefaultRequestHeaders.ConnectionClose = false;
 }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
@@ -198,6 +201,26 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// Warn if local LLM is active but no RTX card exists on Windows
+using (var scope = app.Services.CreateScope())
+{
+    var llmOptions = scope.ServiceProvider.GetRequiredService<IOptions<LLMOptions>>().Value;
+    if (string.Equals(llmOptions.Provider, "LocalLLM", StringComparison.OrdinalIgnoreCase))
+    {
+        if (!SmartPathBackend.Utils.GpuDetector.HasRtxCard())
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine();
+            Console.WriteLine("===================================================================================");
+            Console.WriteLine("WARNING: The Local AI feature requires an NVIDIA RTX card, but none was detected.");
+            Console.WriteLine("You will not be able to run the local AI features on this machine.");
+            Console.WriteLine("===================================================================================");
+            Console.WriteLine();
+            Console.ResetColor();
+        }
+    }
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -219,6 +242,11 @@ app.MapHub<MessageHub>("/hubs/message");
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SmartPathDbContext>();
+    
+    // Ensure pg_trgm extension exists before migrations create GIN trigram indices
+    await db.Database.OpenConnectionAsync();
+    await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS \"pg_trgm\";");
+    
     await db.Database.MigrateAsync();
     var needSeed = !await db.Users.AnyAsync(); 
     if (needSeed)

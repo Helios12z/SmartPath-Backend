@@ -1,4 +1,6 @@
-﻿using SmartPathBackend.Interfaces.Services;
+using SmartPathBackend.Interfaces.Services;
+using SmartPathBackend.Utils;
+using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
 
@@ -9,15 +11,17 @@ namespace SmartPathBackend.Services
         public string Name => "LocalLLM";
 
         private readonly HttpClient _http;
+        private readonly LLMOptions _opt;
         private static readonly JsonSerializerOptions _jsonOpts = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
 
-        public LocalLLMProvider(IHttpClientFactory httpClientFactory)
+        public LocalLLMProvider(IHttpClientFactory httpClientFactory, IOptions<LLMOptions> opt)
         {
-            _http = httpClientFactory.CreateClient("LocalLLM"); // BaseAddress should be http://127.0.0.1:8000/v1
+            _http = httpClientFactory.CreateClient("LocalLLM"); // Configured via Program.cs
+            _opt = opt.Value;
         }
 
         public async Task<string> CompleteAsync(
@@ -26,6 +30,12 @@ namespace SmartPathBackend.Services
             string? modelOverride = null,
             CancellationToken ct = default)
         {
+            // Ensure machine has required GPU
+            if (!GpuDetector.HasRtxCard())
+            {
+                throw new InvalidOperationException("The local AI feature cannot run because no NVIDIA RTX graphics card was detected on this machine.");
+            }
+
             // Build OpenAI-style chat payload
             var openAiMsgs = new List<object>();
             if (!string.IsNullOrWhiteSpace(systemPrompt))
@@ -35,12 +45,12 @@ namespace SmartPathBackend.Services
 
             var payload = new
             {
-                model = modelOverride ?? "smartpath-3b",
+                model = modelOverride ?? _opt.Model ?? "qwen2.5:3b",
                 messages = openAiMsgs
             };
 
             // Try modern /v1/chat/completions first
-            using var chatReq = new HttpRequestMessage(HttpMethod.Post, "/chat/completions")
+            using var chatReq = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
             {
                 Content = new StringContent(JsonSerializer.Serialize(payload, _jsonOpts), Encoding.UTF8, "application/json")
             };
@@ -62,11 +72,11 @@ namespace SmartPathBackend.Services
             var legacyPrompt = BuildLegacyPrompt(systemPrompt, messages);
             var legacyPayload = new
             {
-                model = modelOverride ?? "smartpath-3b",
+                model = modelOverride ?? _opt.Model ?? "qwen2.5:3b",
                 prompt = legacyPrompt
             };
 
-            using var legacyReq = new HttpRequestMessage(HttpMethod.Post, "/completions")
+            using var legacyReq = new HttpRequestMessage(HttpMethod.Post, "completions")
             {
                 Content = new StringContent(JsonSerializer.Serialize(legacyPayload, _jsonOpts), Encoding.UTF8, "application/json")
             };
