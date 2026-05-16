@@ -77,6 +77,51 @@ namespace SmartPathBackend.Services
             return result;
         }
 
+        public async Task<FileSummaryResult> SummarizeTextAsync(
+            string title,
+            string? description,
+            string rawText,
+            CancellationToken ct = default)
+        {
+            var result = new FileSummaryResult
+            {
+                ContentType = "Text/Web Content",
+                IsTextBased = true
+            };
+
+            try
+            {
+                // Smart sampling
+                var words = rawText.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                result.WordCount = words.Length;
+
+                if (words.Length <= 1000)
+                {
+                    result.ExtractedSample = rawText;
+                }
+                else
+                {
+                    var firstPart = string.Join(" ", words.Take(300));
+                    var lastPart = string.Join(" ", words.TakeLast(300));
+                    result.ExtractedSample = $"{firstPart}\n...[truncated]...\n{lastPart}";
+                }
+
+                result.Language = DetectLanguage(result.ExtractedSample);
+                result.EstimatedReadingTime = CalculateReadingTime(result.WordCount);
+                result.IsEducational = AnalyzeEducationalContent(rawText);
+                result.QualityScore = AnalyzeContentQuality(rawText);
+                result.AcademicLevel = DetermineAcademicLevel(rawText);
+                result.KeyTopics = ExtractKeyTopics(rawText);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error summarizing text for {Title}", title);
+                result.ProcessingNotes = $"Error processing text: {ex.Message}";
+            }
+
+            return result;
+        }
+
         public async Task<string> GenerateSummarizationPromptAsync(
             string categoryPath,
             FileSummaryResult summary,

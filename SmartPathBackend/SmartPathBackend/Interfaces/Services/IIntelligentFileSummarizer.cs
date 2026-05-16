@@ -14,6 +14,13 @@ namespace SmartPathBackend.Interfaces.Services
             CancellationToken ct = default
         );
 
+        Task<FileSummaryResult> SummarizeTextAsync(
+            string title,
+            string? description,
+            string rawText,
+            CancellationToken ct = default
+        );
+
         Task<string> GenerateSummarizationPromptAsync(
             string categoryPath,
             FileSummaryResult summary,

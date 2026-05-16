@@ -20,6 +20,8 @@ namespace SmartPathBackend.Services
         private readonly IIntelligentFileSummarizer _fileSummarizer;
         private readonly IAmazonS3 _s3;
         private readonly R2Options _r2;
+        private readonly IWebCrawlerService _crawler;
+        private readonly IKnowledgeService _knowledge;
 
         public StudyMaterialLibraryService(
             SmartPathDbContext context,
@@ -27,7 +29,9 @@ namespace SmartPathBackend.Services
             IStudyMaterialAiReviewer aiReviewer,
             IIntelligentFileSummarizer fileSummarizer,
             IAmazonS3 s3,
-            IOptions<R2Options> r2)
+            IOptions<R2Options> r2,
+            IWebCrawlerService crawler,
+            IKnowledgeService knowledge)
         {
             _context = context;
             _logger = logger;
@@ -35,6 +39,8 @@ namespace SmartPathBackend.Services
             _fileSummarizer = fileSummarizer;
             _s3 = s3;
             _r2 = r2.Value;
+            _crawler = crawler;
+            _knowledge = knowledge;
         }
 
         public async Task<StudyMaterialResponse> CreateAsync(Guid uploaderId, StudyMaterialCreateMeta meta, IFormFile? file, CancellationToken ct)
@@ -142,6 +148,21 @@ namespace SmartPathBackend.Services
                         memoryStream,
                         ct
                     );
+                }
+                else if (!string.IsNullOrEmpty(material.SourceUrl))
+                {
+                    // Crawl the URL (depth 1 for study materials)
+                    var pages = await _crawler.CrawlAsync(material.SourceUrl, maxDepth: 1, maxPages: 5, ct: ct);
+                    if (pages.Count > 0)
+                    {
+                        var combinedText = string.Join("\n\n", pages.Select(p => $"--- {p.Title} ---\n{p.Content}"));
+                        fileSummary = await _fileSummarizer.SummarizeTextAsync(
+                            material.Title,
+                            material.Description,
+                            combinedText,
+                            ct
+                        );
+                    }
                 }
 
                 // Generate optimized prompt for LLM
@@ -319,8 +340,37 @@ namespace SmartPathBackend.Services
                 }
             }
 
+            if (req.Decision == Status.Accepted)
+            {
+                // Ingest into Knowledge Base on Acceptance
+                await IngestIntoKnowledgeBaseAsync(material);
+            }
+
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        private async Task IngestIntoKnowledgeBaseAsync(StudyMaterial material)
+        {
+            try
+            {
+                if (material.SourceType == StudyMaterialSourceType.Url && !string.IsNullOrEmpty(material.SourceUrl))
+                {
+                    await _knowledge.IngestFromUrlAsync(material.SourceUrl, material.Title);
+                }
+                else if (material.SourceType == StudyMaterialSourceType.File && !string.IsNullOrEmpty(material.FileUrl))
+                {
+                    // For files, we can ingest the content if it's a valid URL (like from R2)
+                    if (material.FileUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await _knowledge.IngestFromUrlAsync(material.FileUrl, material.Title);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to auto-ingest study material {MaterialId} into Knowledge Base", material.Id);
+            }
         }
 
         private async Task<StudyMaterialResponse> MapToResponseAsync(StudyMaterial material)

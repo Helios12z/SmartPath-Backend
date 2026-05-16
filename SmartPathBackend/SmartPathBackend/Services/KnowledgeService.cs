@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Packaging;
 using HtmlAgilityPack;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
@@ -24,12 +24,14 @@ namespace SmartPathBackend.Services
         private readonly IUnitOfWork _uow;
         private readonly FileExtensionContentTypeProvider _contentTypes = new();
         private readonly ILogger<KnowledgeService> _logger;
+        private readonly IWebCrawlerService _crawler;
 
-        public KnowledgeService(IEmbedderService embedder, IKnowledgeRepository repo, IUnitOfWork uow, ILogger<KnowledgeService> logger)
+        public KnowledgeService(IEmbedderService embedder, IKnowledgeRepository repo, IUnitOfWork uow, ILogger<KnowledgeService> logger, IWebCrawlerService crawler)
         {
             _embedder = embedder;
             _uow = uow;
             _logger = logger;
+            _crawler = crawler;
         }
 
         public async Task<Guid> IngestRawAsync(string title, string? sourceUrl, string rawText, CancellationToken ct = default)
@@ -93,97 +95,24 @@ namespace SmartPathBackend.Services
 
         public async Task<Guid> IngestFromUrlAsync(string url, string? title = null, CancellationToken ct = default)
         {
-            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // depth = 2 as requested
+            var pages = await _crawler.CrawlAsync(url, maxDepth: 2, maxPages: 20, ct: ct);
+            Guid firstDocId = Guid.Empty;
 
-            // maxDepth = 1: url gốc + các link con trực tiếp
-            return await IngestFromUrlInternalAsync(url, title, visited, depth: 0, maxDepth: 1, ct);
-        }
-
-        private async Task<Guid> IngestFromUrlInternalAsync(
-            string url,
-            string? title,
-            HashSet<string> visited,
-            int depth,
-            int maxDepth,
-            CancellationToken ct)
-        {
-            // Nếu đã ingest URL này rồi thì bỏ qua
-            if (!visited.Add(url))
+            foreach (var page in pages)
             {
-                return Guid.Empty;
+                // Tránh ingest trùng document theo SourceUrl
+                var existed = await _uow.Knowledges
+                    .QueryDocuments()
+                    .AnyAsync(d => d.SourceUrl == page.Url, ct);
+
+                if (existed) continue;
+
+                var id = await IngestRawAsync(page.Title, page.Url, page.Content, ct);
+                if (firstDocId == Guid.Empty) firstDocId = id;
             }
 
-            using var http = new HttpClient();
-
-            using var res = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-            res.EnsureSuccessStatusCode();
-
-            var contentType = res.Content.Headers.ContentType?.MediaType;
-            var fileName = GuessFileNameFromUrl(url);
-            if (string.IsNullOrWhiteSpace(contentType) &&
-                _contentTypes.TryGetContentType(fileName, out var guessed))
-            {
-                contentType = guessed;
-            }
-
-            var bytes = await res.Content.ReadAsByteArrayAsync(ct);
-            title ??= System.IO.Path.GetFileNameWithoutExtension(fileName);
-            var ext = System.IO.Path.GetExtension(fileName)?.ToLowerInvariant();
-
-            // Nếu là HTML: tự xử lý, vừa ingest text vừa crawl link con
-            if (IsHtml(contentType, ext))
-            {
-                var html = Encoding.UTF8.GetString(bytes);
-                var text = HtmlToPlainText(html);
-                if (string.IsNullOrWhiteSpace(text))
-                    throw new InvalidOperationException("Không trích xuất được văn bản từ nội dung URL.");
-
-                // 1) Ingest document cho TRANG HIỆN TẠI
-                var docId = await IngestRawAsync(title, url, text, ct);
-
-                // 2) Nếu còn depth, crawl các link con
-                if (depth < maxDepth)
-                {
-                    var childLinks = ExtractChildLinks(html, url);
-
-                    foreach (var childUrl in childLinks)
-                    {
-                        // Tránh ingest trùng document theo SourceUrl
-                        var existed = await _uow.Knowledges
-                            .QueryDocuments()
-                            .AnyAsync(d => d.SourceUrl == childUrl, ct);
-
-                        if (existed) continue;
-
-                        try
-                        {
-                            await IngestFromUrlInternalAsync(
-                                childUrl,
-                                title: null,
-                                visited: visited,
-                                depth: depth + 1,
-                                maxDepth: maxDepth,
-                                ct: ct
-                            );
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to process URL: {Url} for document: {DocumentId}", url, docId);
-                        }
-                    }
-                }
-
-                return docId;
-            }
-            else
-            {
-                // Các loại file khác: dùng ExtractTextAsync như cũ
-                string text = await ExtractTextAsync(new MemoryStream(bytes), contentType, fileName, ct);
-                if (string.IsNullOrWhiteSpace(text))
-                    throw new InvalidOperationException("Không trích xuất được văn bản từ nội dung URL.");
-
-                return await IngestRawAsync(title, url, text, ct);
-            }
+            return firstDocId;
         }
 
         public async Task<Guid> IngestFileAsync(
@@ -214,188 +143,11 @@ namespace SmartPathBackend.Services
 
         private static async Task<string> ExtractTextAsync(Stream stream, string? contentType, string fileName, CancellationToken ct)
         {
-            // Đảm bảo có thể đọc lại từ đầu
-            if (stream.CanSeek) stream.Position = 0;
-
-            // Ưu tiên content-type, fallback theo extension
-            var ext = System.IO.Path.GetExtension(fileName)?.ToLowerInvariant();
-
-            // 1) PDF
-            if (Is(contentType, MediaTypeNames.Application.Pdf) || ext == ".pdf")
-            {
-                using var ms = await ToMemoryStream(stream, ct);
-                var bytes = ms.ToArray();
-                return PdfText.ExtractText(bytes) ?? string.Empty;
-            }
-
-            // 2) DOCX
-            if (Is(contentType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document") || ext == ".docx")
-            {
-                using var ms = await ToMemoryStream(stream, ct);
-                using var wordDoc = WordprocessingDocument.Open(ms, false);
-                var body = wordDoc.MainDocumentPart?.Document?.Body;
-                return body?.InnerText ?? string.Empty;
-            }
-
-            // 3) .doc 
-            if (ext == ".doc" || Is(contentType, "application/msword"))
-            {
-                using var ms = await ToMemoryStream(stream, ct);
-                var extractor = new TextExtractor();
-                var bytes = ms.ToArray();
-                var result = extractor.Extract(bytes);
-                return result?.Text ?? string.Empty;
-            }
-
-            // 4) HTML
-            if (Is(contentType, MediaTypeNames.Text.Html) || ext is ".html" or ".htm")
-            {
-                using var r = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
-                var html = await r.ReadToEndAsync(ct);
-                return HtmlToPlainText(html);
-            }
-
-            // 5) Markdown (đọc như text thuần, có thể strip markdown sau)
-            if (ext == ".md" || Is(contentType, "text/markdown"))
-            {
-                using var r = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
-                var md = await r.ReadToEndAsync(ct);
-                return StripMarkdown(md);
-            }
-
-            // 6) RTF (đơn giản: strip thô; muốn chuẩn hơn, dùng thư viện RtfPipe)
-            if (ext == ".rtf" || Is(contentType, "application/rtf") || Is(contentType, "text/rtf"))
-            {
-                using var r = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
-                var rtf = await r.ReadToEndAsync(ct);
-                return NaiveStripRtf(rtf);
-            }
-
-            // 7) TXT & các loại text/*
-            if ((contentType?.StartsWith("text/") ?? false) || ext is ".txt" or ".csv" or ".log")
-            {
-                using var r = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
-                return await r.ReadToEndAsync(ct);
-            }
-
-            // 8) Fallback: cố đọc như UTF-8 text
-            using (var r2 = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true))
-            {
-                var raw = await r2.ReadToEndAsync(ct);
-                return raw;
-            }
+            return await DocumentExtractor.ExtractTextAsync(stream, contentType, fileName, ct);
         }
 
         private static bool Is(string? contentType, string target)
             => string.Equals(contentType, target, StringComparison.OrdinalIgnoreCase);
-
-        private static async Task<MemoryStream> ToMemoryStream(Stream s, CancellationToken ct)
-        {
-            var ms = new MemoryStream();
-            if (s.CanSeek) s.Position = 0;
-            await s.CopyToAsync(ms, ct);
-            ms.Position = 0;
-            return ms;
-        }
-
-        private static string HtmlToPlainText(string html)
-        {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-
-            // Loại script/style
-            foreach (var n in doc.DocumentNode.SelectNodes("//script|//style") ?? Enumerable.Empty<HtmlNode>())
-                n.Remove();
-
-            var text = doc.DocumentNode.InnerText;
-            // Chuẩn hoá khoảng trắng
-            return HtmlEntity.DeEntitize(text)
-                .Replace("\r", " ")
-                .Replace("\n", " ")
-                .Replace("\t", " ")
-                .Trim();
-        }
-
-        private static string StripMarkdown(string md)
-        {
-            if (string.IsNullOrEmpty(md)) return string.Empty;
-            var s = md;
-
-            // code fences
-            s = System.Text.RegularExpressions.Regex.Replace(s, "```[\\s\\S]*?```", " ");
-            // inline code
-            s = System.Text.RegularExpressions.Regex.Replace(s, "`[^`]*`", " ");
-            // images/links: [text](url)
-            s = System.Text.RegularExpressions.Regex.Replace(s, "!?\\[[^\\]]*\\]\\([^\\)]*\\)", " ");
-            // headings/lists/formatting
-            s = System.Text.RegularExpressions.Regex.Replace(s, @"[#>*_\-\+\=]{1,}", " ");
-            // html tags if any
-            s = System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", " ");
-            // normalize spaces
-            s = System.Text.RegularExpressions.Regex.Replace(s, "\\s+", " ").Trim();
-
-            return s;
-        }
-
-        private static bool IsHtml(string? contentType, string? ext)
-        {
-            return Is(contentType, MediaTypeNames.Text.Html)
-                   || ext is ".html" or ".htm";
-        }
-
-        private static List<string> ExtractChildLinks(string html, string baseUrl)
-        {
-            var result = new List<string>();
-
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-
-            var nodes = doc.DocumentNode.SelectNodes("//a[@href]");
-            if (nodes == null || nodes.Count == 0)
-                return result;
-
-            var baseUri = new Uri(baseUrl);
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var node in nodes)
-            {
-                var href = node.GetAttributeValue("href", "").Trim();
-                if (string.IsNullOrEmpty(href))
-                    continue;
-
-                // bỏ qua link anchor / javascript / mailto
-                if (href.StartsWith("#") ||
-                    href.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase) ||
-                    href.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                // build absolute url
-                Uri abs;
-                if (!Uri.TryCreate(href, UriKind.Absolute, out abs))
-                {
-                    abs = new Uri(baseUri, href);
-                }
-
-                // chỉ crawl cùng domain (tránh bay ra ngoài UIT, v.v.)
-                if (!string.Equals(abs.Host, baseUri.Host, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var childUrl = abs.ToString();
-                if (!seen.Add(childUrl))
-                    continue;
-
-                // lọc loại file cần crawl: pdf, doc, docx, html
-                var childExt = System.IO.Path.GetExtension(abs.LocalPath)?.ToLowerInvariant();
-                if (childExt is not (".pdf" or ".doc" or ".docx" or ".html" or ".htm"))
-                    continue;
-
-                result.Add(childUrl);
-            }
-
-            return result;
-        }
 
         private static string NaiveStripRtf(string rtf)
         {

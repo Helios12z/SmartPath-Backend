@@ -122,6 +122,12 @@ builder.Services.AddHttpClient("LocalLLM", (sp, c) =>
     ConnectTimeout = TimeSpan.FromSeconds(10)
 });
 
+builder.Services.AddHttpClient("WebCrawler", c =>
+{
+    c.Timeout = TimeSpan.FromMinutes(2);
+    c.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
+});
+
 builder.Services.AddHttpClient<IEmbedderService, OllamaEmbedderService>();
 
 builder.Services.Configure<ImgBbOptions>(builder.Configuration.GetSection("ImgBB"));
@@ -176,6 +182,7 @@ builder.Services.AddScoped<IStudyMaterialLibraryService, StudyMaterialLibrarySer
 builder.Services.AddScoped<IStudyMaterialAiReviewer, StudyMaterialAiReviewer>();
 builder.Services.AddScoped<IPostAiReviewer, PostAiReviewer>();
 builder.Services.AddScoped<IIntelligentFileSummarizer, IntelligentFileSummarizer>();
+builder.Services.AddScoped<IWebCrawlerService, WebCrawlerService>();
 
 builder.Services.AddDbContext<SmartPathDbContext>(options =>
 {
