@@ -39,6 +39,17 @@ services:
       timeout: 5s
       retries: 3
 
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: smartpath-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    command: >
+      sh -c "ollama pull qwen2.5:3b && ollama pull bge-m3"
+
 volumes:
   smartpath_postgres_data:
   smartpath_ollama_data:

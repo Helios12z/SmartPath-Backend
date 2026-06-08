@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 
@@ -35,7 +35,7 @@ namespace SmartPathBackend.Interfaces.Services
 
             // Ưu tiên OpenAI-compatible /v1/embeddings
             var urlA = $"{_baseUrl}/v1/embeddings";
-            var urlB = $"{_baseUrl}/api/embeddings"; // fallback API gốc của Ollama
+            var urlB = $"{_baseUrl}/api/embed"; // fallback API gốc của Ollama mới
 
             var payload = JsonSerializer.Serialize(new { model = _model, input = arr }, JsonOpts);
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
@@ -54,25 +54,57 @@ namespace SmartPathBackend.Interfaces.Services
             {
                 using var content2 = new StringContent(payload, Encoding.UTF8, "application/json");
                 resp = await _http.PostAsync(urlB, content2, ct);
-                resp.EnsureSuccessStatusCode();
+                
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errBody = await resp.Content.ReadAsStringAsync(ct);
+                    throw new HttpRequestException($"Ollama Error ({resp.StatusCode}) for {urlB}: {errBody}");
+                }
             }
 
             await using var stream = await resp.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
 
-            // Cả hai dạng response đều có data[*].embedding
-            var data = doc.RootElement.GetProperty("data");
-            var result = new List<float[]>(capacity: data.GetArrayLength());
-            foreach (var item in data.EnumerateArray())
+            if (doc.RootElement.TryGetProperty("data", out var dataProp))
             {
-                var embEl = item.GetProperty("embedding");
-                var vec = new float[embEl.GetArrayLength()];
-                int i = 0;
-                foreach (var num in embEl.EnumerateArray())
-                    vec[i++] = (float)num.GetDouble();
-                result.Add(vec);
+                // OpenAI-compatible format
+                var result = new List<float[]>(capacity: dataProp.GetArrayLength());
+                foreach (var item in dataProp.EnumerateArray())
+                {
+                    var embEl = item.GetProperty("embedding");
+                    var vec = new float[embEl.GetArrayLength()];
+                    int i = 0;
+                    foreach (var num in embEl.EnumerateArray())
+                        vec[i++] = (float)num.GetDouble();
+                    result.Add(vec);
+                }
+                return result;
             }
-            return result;
+            else if (doc.RootElement.TryGetProperty("embeddings", out var embeddingsProp))
+            {
+                // Ollama /api/embed format
+                var result = new List<float[]>(capacity: embeddingsProp.GetArrayLength());
+                foreach (var item in embeddingsProp.EnumerateArray())
+                {
+                    var vec = new float[item.GetArrayLength()];
+                    int i = 0;
+                    foreach (var num in item.EnumerateArray())
+                        vec[i++] = (float)num.GetDouble();
+                    result.Add(vec);
+                }
+                return result;
+            }
+            else if (doc.RootElement.TryGetProperty("embedding", out var embeddingProp))
+            {
+                // Ollama old /api/embeddings format
+                var vec = new float[embeddingProp.GetArrayLength()];
+                int i = 0;
+                foreach (var num in embeddingProp.EnumerateArray())
+                    vec[i++] = (float)num.GetDouble();
+                return new List<float[]> { vec };
+            }
+
+            return new List<float[]>();
         }
     }
 }

@@ -82,7 +82,11 @@ namespace SmartPathBackend.Services
             };
 
             using var legacyRes = await _http.SendAsync(legacyReq, ct);
-            legacyRes.EnsureSuccessStatusCode();
+            if (!legacyRes.IsSuccessStatusCode)
+            {
+                var errBody = await legacyRes.Content.ReadAsStringAsync(ct);
+                throw new HttpRequestException($"LocalLLM Error ({legacyRes.StatusCode}): {errBody}");
+            }
 
             using var legacyStream = await legacyRes.Content.ReadAsStreamAsync(ct);
             using var legacyDoc = await JsonDocument.ParseAsync(legacyStream, cancellationToken: ct);
